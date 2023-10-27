@@ -1,49 +1,50 @@
 package com.nextg.register.jwt;
 
-
+import com.nextg.register.service.AccountDetailsImpl;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
-import javax.crypto.SecretKey;
 import java.security.Key;
 import java.util.Date;
 
-@Service
+@Component
 public class JwtUtils {
     private static final Logger log = LoggerFactory.getLogger(JwtUtils.class);
 
+    @Value("${secret}")
+    private String SECRET;
 
-    private String SECRET="asdasdashjhsadncikadklmwionajkscnkas sdskaskdhasds";
-
-    @Value("${horizon.app.jwtExpirationMs}")
+    @Value("${jwtExpirationMs}")
     private long jwtDurationMs;
 
-    public String generateToken(Authentication auth){
-        String jwt = Jwts.builder()
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(new Date().getTime() + 846000000))
-                .claim("email",auth.getName())
-                .signWith(key,SignatureAlgorithm.HS256).compact();
-        return jwt;
+    public String generateJwtToken(AccountDetailsImpl userDetails){
+        return generateTokenFromEmail(userDetails.getEmail());
     }
-    public String getEmailFromToken(String jwt){
-        jwt = jwt.substring(7);
-        Claims claims = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(jwt).getBody();
-        String email = String.valueOf(claims.get("email"));
-        return email;
+    public String generateTokenFromEmail(String email){
+        return Jwts.builder()
+                .setSubject(email)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date((new Date()).getTime() + jwtDurationMs))
+                .signWith(key(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+    public String getEmailFromJwtToken(String token) {
+        return Jwts.parserBuilder().setSigningKey(key()).build()
+                .parseClaimsJws(token).getBody().getSubject();
     }
 
-    SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes());
+    private Key key(){
+        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET));
+    }
 
     public boolean validateJwtToken(String token){
         try{
-            Jwts.parserBuilder().setSigningKey(key).build().parse(token);
+            Jwts.parserBuilder().setSigningKey(key()).build().parse(token);
             return true;
         }catch (MalformedJwtException e) {
             log.error("Invalid JWT token: {}", e.getMessage());

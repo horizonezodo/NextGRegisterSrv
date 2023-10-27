@@ -1,96 +1,121 @@
 package com.nextg.register.controller;
 
-import com.nextg.register.entity.Account;
-import com.nextg.register.exception.AccountException;
 import com.nextg.register.jwt.JwtUtils;
-import com.nextg.register.payload.request.LoginRequest;
-import com.nextg.register.payload.response.AuthResponse;
-import com.nextg.register.repository.AccountRepository;
-import com.nextg.register.service.Impl.AccountDetailsServiceImpl;
+import com.nextg.register.model.Account;
+import com.nextg.register.model.ERole;
+import com.nextg.register.model.Role;
+import com.nextg.register.repo.AccountRepository;
+import com.nextg.register.repo.RoleRepository;
+import com.nextg.register.request.LoginRequest;
+import com.nextg.register.request.RegisterRequest;
+import com.nextg.register.response.MessageResponse;
+import com.nextg.register.response.UserInfoResponse;
+import com.nextg.register.service.AccountDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
-@CrossOrigin("*")
 @RequestMapping("/auth")
 public class AuthController {
     @Autowired
-    private AccountRepository accRepo;
+    AuthenticationManager manager;
+
     @Autowired
-    private JwtUtils jwtUtils;
+    AccountRepository accRepo;
+
     @Autowired
-    private PasswordEncoder encoder;
+    RoleRepository roleRepo;
+
     @Autowired
-    private AccountDetailsServiceImpl accountService;
+    JwtUtils untils;
 
-    private Authentication authenticate(String email,String password){
-        UserDetails userDetails =accountService.loadUserByUsername(email);
-        if(userDetails==null){
-            throw new BadCredentialsException("Invalid Username");
-        }
-        if(encoder.matches(password,userDetails.getPassword())){
-            throw new BadCredentialsException("Invalid Password");
-        }
-        return new UsernamePasswordAuthenticationToken(userDetails,null, userDetails.getAuthorities());
-    }
+    @Autowired
+    PasswordEncoder encoder;
 
 
-    @PostMapping("/signupEmail")
-    public ResponseEntity<AuthResponse>createAccountByEmailHandler(@RequestBody Account acc) throws AccountException{
-        String email = acc.getEmail();
-        String password = acc.getPassword();
-        String username = acc.getUsername();
 
-        Account isEmailExists = accRepo.findByEmail(email);
-        if(isEmailExists != null){
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-        }
-        Account createAccount = new Account();
-        createAccount.setEmail(email);
-        createAccount.setPassword(encoder.encode(password));
-        createAccount.setUsername(username);
+    @PostMapping("/login")
+    public ResponseEntity<?> authenticationUser(@RequestBody LoginRequest request){
+        Authentication authentication = manager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+        );
 
-        Account saveAccount = accRepo.save(createAccount);
-
-        Authentication authentication = new UsernamePasswordAuthenticationToken(saveAccount.getEmail(),saveAccount.getPassword());
         SecurityContextHolder.getContext().setAuthentication(authentication);
+        AccountDetailsImpl accDetails = (AccountDetailsImpl) authentication.getPrincipal();
+        String jwt = untils.generateJwtToken(accDetails);
 
-        String token = jwtUtils.generateToken(authentication);
-        AuthResponse response = new AuthResponse(token, "Signup Success");
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+        List<String> roles = accDetails.getAuthorities().stream()
+                .map(item -> item.getAuthority())
+                .collect(Collectors.toList());
+
+
+        return ResponseEntity.ok(
+                new UserInfoResponse(
+                        accDetails.getId(), accDetails.getUsername(),
+                        accDetails.getEmail(), accDetails.getPhone()
+                        , roles, jwt
+                ));
     }
 
-    @PostMapping("/signinEmail")
-    public ResponseEntity<AuthResponse> loginAccountByEmailHandler(@RequestBody LoginRequest request){
-        String email = request.getEmail();
-        String password = request.getPassword();
+    @PostMapping("/register")
+    public ResponseEntity<?> registerUser(@RequestBody RegisterRequest request){
 
-        Authentication authentication=authenticate(email,encoder.encode(password));
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String token = jwtUtils.generateToken(authentication);
-        AuthResponse response = new AuthResponse(token,"Signin Success");
-        return new ResponseEntity<AuthResponse>(response, HttpStatus.CREATED);
+        if(accRepo.existsByEmail(request.getEmail())){
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: Email has been registered"));
+        }
 
-    }
+        Account createAccount = new Account(request.getUsername(), request.getEmail(),
+                encoder.encode(request.getPassword()), request.getPhone());
 
-    @PostMapping("/changePassword")
-    public ResponseEntity<?> changePassword(String jwt, @RequestParam("newPass") String newPass){
-        String email = jwtUtils.getEmailFromToken(jwt);
-        Account acc = accRepo.findByEmail(email);
-        if(acc == null){
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        Set<String> strRole = request.getRoles();
+        Set<Role> roles = new HashSet<>();
+
+        if(strRole == null){
+            Role userRole = roleRepo.findByName(ERole.ROLE_USER)
+                    .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+            roles.add(userRole);
         }else{
-            acc.setPassword(encoder.encode(newPass));
+            strRole.forEach(role ->{
+                switch (role){
+                    case "admin":
+                        Role admin = roleRepo.findByName(ERole.ROLE_ADMIN)
+                                .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                        roles.add(admin);
+                        break;
+                    case "manager":
+                        Role manager = roleRepo.findByName(ERole.ROLE_MANAGER)
+                                .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                        roles.add(manager);
+                        break;
+                    case "mod":
+                        Role mod = roleRepo.findByName(ERole.ROLE_MODERATOR)
+                                .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                        roles.add(mod);
+                        break;
+                    default:
+                        Role userRole = roleRepo.findByName(ERole.ROLE_USER)
+                                .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                        roles.add(userRole);
+                        break;
+                }
+            });
         }
-        return new ResponseEntity<>(accRepo.save(acc), HttpStatus.OK);
-
+        createAccount.setRoles(roles);
+        accRepo.save(createAccount);
+        return ResponseEntity.ok(new MessageResponse("User registered"));
     }
 }
