@@ -29,6 +29,7 @@ public class AccountDetailsImpl implements UserDetails {
 
     private String phone;
 
+
     @JsonIgnore
     private String password;
 

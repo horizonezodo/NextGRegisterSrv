@@ -32,16 +32,25 @@ public class Account {
 
     private String password;
 
+    private String lastName;
+
+    private String firstName;
+
+    private int  status;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(	name = "account_roles",
             joinColumns = @JoinColumn(name = "accounts_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
 
-    public Account(String username, String email, String password,String phone) {
+    public Account(String username, String email, String password,String phone,String firstName,String lastName,int status) {
         this.username = username;
         this.email = email;
         this.password = password;
         this.phone = phone;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.status = status;
     }
 }

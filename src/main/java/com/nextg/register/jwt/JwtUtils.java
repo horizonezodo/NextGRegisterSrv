@@ -1,5 +1,6 @@
 package com.nextg.register.jwt;
 
+import com.auth0.jwt.JWTVerifier;
 import com.nextg.register.service.AccountDetailsImpl;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.function.Function;
 
 @Component
 public class JwtUtils {
@@ -22,7 +24,7 @@ public class JwtUtils {
     @Value("${jwtExpirationMs}")
     private long jwtDurationMs;
 
-    public String generateJwtToken(AccountDetailsImpl userDetails){
+    public String generateJwtTokenForLogin(AccountDetailsImpl userDetails){
         return generateTokenFromEmail(userDetails.getEmail());
     }
     public String generateTokenFromEmail(String email){
@@ -57,4 +59,17 @@ public class JwtUtils {
         }
         return false;
     }
+
+    public boolean validateEmail(String email , String token){
+         String temEmail = getEmailFromJwtToken(token);
+         if(temEmail.equals(email)){
+             return true;
+         }
+         return false;
+    }
+
+
+
+
+
 }
