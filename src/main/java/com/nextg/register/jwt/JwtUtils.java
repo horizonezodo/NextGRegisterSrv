@@ -68,6 +68,15 @@ public class JwtUtils {
          return false;
     }
 
+    public String generateTokenToSignup(String email){
+        return Jwts.builder()
+                .setSubject(email)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date((new Date()).getTime() + 86400000))
+                .signWith(key(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
 
 
 

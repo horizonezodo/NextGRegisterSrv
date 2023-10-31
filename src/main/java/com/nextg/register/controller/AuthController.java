@@ -17,6 +17,7 @@ import com.nextg.register.service.MailService;
 import com.nextg.register.service.OtpService;
 import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -57,6 +58,8 @@ public class AuthController {
 
 //    @Autowired
 //    private OtpService otpService;
+    @Value("${signup.port}")
+    private String portSignup;
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticationUserUsingEmail(@RequestBody LoginRequest request){
@@ -83,9 +86,9 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUserUsingEmail(@RequestBody RegisterRequest request){
-
-        if(accRepo.existsByEmail(request.getEmail())){
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Email has been registered"));
+        String tokenSigunp = request.getTokenSignup();
+        if((!untils.validateEmail(request.getEmail(), tokenSigunp)) && (untils.validateJwtToken(tokenSigunp))){
+            return new ResponseEntity<>(new MessageResponse("Error: Email has not valid"),HttpStatus.NO_CONTENT);
         }
 
         Account createAccount = new Account(request.getUsername(), request.getEmail(),
@@ -140,7 +143,7 @@ public class AuthController {
             return new ResponseEntity<>(new MessageResponse("Your email has been registered"),HttpStatus.BAD_REQUEST);
         }
 
-        String jwt = untils.generateTokenFromEmail(email);
+        String jwt = untils.generateTokenToSignup(email);
         mailService.SendMail(email,jwt);
         return new ResponseEntity<>(HttpStatus.OK);
     }
@@ -150,7 +153,7 @@ public class AuthController {
 
         System.out.println("token " + token + " email : " + email);
         if(untils.validateEmail(email,token)){
-            return new RedirectView("http://localhost:4200/register?email="+email+"&token="+token+"");
+            return new RedirectView(portSignup + "?email="+email+"&token="+token+"");
         }
         return new RedirectView("");
     }

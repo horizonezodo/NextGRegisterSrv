@@ -14,6 +14,9 @@ public class MailService {
     @Value("${spring.mail.username}")
     private String to;
 
+    @Value("${verifySuccess.port}")
+    private String portVerifySuccess;
+
     @Autowired
     private JavaMailSender mailSender;
 
@@ -25,23 +28,9 @@ public class MailService {
         message.setSubject("Thank you for validate your email");
 
         String htmlContent = "<h1>Account Authentication</h1>"+
-                "<button><a href='http://localhost:8989/auth/verifySuccess?email="+mail + "&token="+token+"'>Verify</button>";
+                "<button><a href='"+portVerifySuccess+"?email="+mail + "&token="+token+"'>Verify</button>";
         message.setContent(htmlContent,"text/html; charset=utf-8");
         mailSender.send(message);
     }
-//    public final JavaMailSender mailSender;
-//
-//    public MailService(JavaMailSender mailSender){
-//        this.mailSender = mailSender;
-//    }
-//
-//
-//    public void sendMail(String to, String subject, String text) {
-//        SimpleMailMessage message = new SimpleMailMessage();
-//        message.setFrom("thiensutoiloi3@gmail.com");
-//        message.setTo(to);
-//        message.setSubject(subject);
-//        message.setText(text);
-//        mailSender.send(message);
-//    }
+
 }
