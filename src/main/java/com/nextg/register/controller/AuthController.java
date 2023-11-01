@@ -234,7 +234,7 @@ public class AuthController {
         }
 
         Account createAccount = new Account(request.getUsername(), request.getEmail(),
-                encoder.encode(request.getPassword()),"+84"+request.getPhone(), request.getFirstName(), request.getLastName(), request.getStatus());
+                encoder.encode(request.getPassword()),"+"+(request.getPhone().trim()), request.getFirstName(), request.getLastName(), request.getStatus());
 
         Set<String> strRole = request.getRoles();
         Set<Role> roles = new HashSet<>();
