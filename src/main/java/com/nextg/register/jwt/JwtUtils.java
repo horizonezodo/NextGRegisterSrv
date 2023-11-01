@@ -77,8 +77,40 @@ public class JwtUtils {
                 .compact();
     }
 
+    public String generateTokenFromPhoneNumber(String phone){
+        return Jwts.builder()
+                .setSubject(phone)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date((new Date()).getTime() + jwtDurationMs))
+                .signWith(key(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public String getPhoneFromJwtToken(String token) {
+        return Jwts.parserBuilder().setSigningKey(key()).build()
+                .parseClaimsJws(token).getBody().getSubject();
+    }
+
+    public String generateJwtTokenForLoginWithPhone(AccountDetailsImpl userDetails){
+        return generateTokenFromEmail(userDetails.getPhone());
+    }
 
 
+    public boolean validatePhone(String phone , String token){
+        String temEmail = getEmailFromJwtToken(token);
+        if(temEmail.equals(phone)){
+            return true;
+        }
+        return false;
+    }
 
+    public String generateTokenToSignupByPhone(String phone){
+        return Jwts.builder()
+                .setSubject(phone)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date((new Date()).getTime() + 86400000))
+                .signWith(key(), SignatureAlgorithm.HS256)
+                .compact();
+    }
 
 }
