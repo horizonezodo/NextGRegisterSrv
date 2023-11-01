@@ -1,6 +1,7 @@
 package com.nextg.register.jwt;
 
 import com.nextg.register.service.AccountDetailsServiceImpl;
+import com.nextg.register.service.AccountService;
 import com.nextg.register.service.UserDetailsServiceImpl;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -60,6 +61,8 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);
     }
+
+
 
     private String parseJwt(HttpServletRequest request) {
         String headerAuth = request.getHeader("Authorization");

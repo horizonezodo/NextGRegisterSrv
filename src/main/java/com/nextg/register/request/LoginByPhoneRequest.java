@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class LoginByPhoneRequest {
-    String phone;
-    String password;
+    private String phone;
+    private String otp;
 }

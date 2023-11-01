@@ -17,6 +17,9 @@ public class MailService {
     @Value("${verifySuccess.port}")
     private String portVerifySuccess;
 
+    @Value("${changePassword}")
+    private String portChangePass;
+
     @Autowired
     private JavaMailSender mailSender;
 
@@ -29,6 +32,19 @@ public class MailService {
 
         String htmlContent = "<h1>Account Authentication</h1>"+
                 "<button><a href='"+portVerifySuccess+"?email="+mail + "&token="+token+"'>Verify</button>";
+        message.setContent(htmlContent,"text/html; charset=utf-8");
+        mailSender.send(message);
+    }
+
+    public void SendMailChangePass(String mail,String token) throws MessagingException {
+        MimeMessage message = mailSender.createMimeMessage();
+
+        message.setFrom(to);
+        message.setRecipients(MimeMessage.RecipientType.TO, mail);
+        message.setSubject("Thank you for validate your email");
+
+        String htmlContent = "<h1>Account Authentication</h1>"+
+                "<button><a href='"+portChangePass+"?email="+mail + "&token="+token+"'>Verify</button>";
         message.setContent(htmlContent,"text/html; charset=utf-8");
         mailSender.send(message);
     }

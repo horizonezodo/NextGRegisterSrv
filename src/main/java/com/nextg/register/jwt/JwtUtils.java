@@ -1,12 +1,15 @@
 package com.nextg.register.jwt;
 
 import com.auth0.jwt.JWTVerifier;
+import com.nextg.register.model.Account;
 import com.nextg.register.service.AccountDetailsImpl;
+import com.nextg.register.service.AccountServiceImpl;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -77,40 +80,21 @@ public class JwtUtils {
                 .compact();
     }
 
-    public String generateTokenFromPhoneNumber(String phone){
+    public String generateTokenFromPhone(String phone){
         return Jwts.builder()
-                .setSubject(phone)
+                .claim("phone",phone)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtDurationMs))
                 .signWith(key(), SignatureAlgorithm.HS256)
                 .compact();
     }
-
     public String getPhoneFromJwtToken(String token) {
-        return Jwts.parserBuilder().setSigningKey(key()).build()
-                .parseClaimsJws(token).getBody().getSubject();
-    }
-
-    public String generateJwtTokenForLoginWithPhone(AccountDetailsImpl userDetails){
-        return generateTokenFromEmail(userDetails.getPhone());
+        return (String) Jwts.parserBuilder().setSigningKey(key()).build()
+                .parseClaimsJws(token).getBody().get("phone");
     }
 
 
-    public boolean validatePhone(String phone , String token){
-        String temEmail = getEmailFromJwtToken(token);
-        if(temEmail.equals(phone)){
-            return true;
-        }
-        return false;
-    }
 
-    public String generateTokenToSignupByPhone(String phone){
-        return Jwts.builder()
-                .setSubject(phone)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date((new Date()).getTime() + 86400000))
-                .signWith(key(), SignatureAlgorithm.HS256)
-                .compact();
-    }
+
 
 }

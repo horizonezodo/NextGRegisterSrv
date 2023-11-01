@@ -7,13 +7,11 @@ import com.nextg.register.model.Role;
 import com.nextg.register.repo.AccountRepository;
 import com.nextg.register.repo.RoleRepository;
 import com.nextg.register.request.*;
-import com.nextg.register.response.MessageResponse;
-import com.nextg.register.response.RegisterReponse;
-import com.nextg.register.response.UserInfoResponse;
+import com.nextg.register.response.*;
 import com.nextg.register.service.AccountDetailsImpl;
+import com.nextg.register.service.AccountServiceImpl;
 import com.nextg.register.service.MailService;
 import com.nextg.register.service.OtpService;
-import com.nextg.register.service.SmsService;
 import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +25,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -57,32 +56,39 @@ public class AuthController {
     private OtpService otpService;
 
     @Autowired
-    private SmsService smsService;
+    private AccountServiceImpl accountService;
 
     @Value("${signup.port}")
     private String portSignup;
 
+    @Value("${changePassword}")
+    private String portChangePass;
+
     @PostMapping("/login")
     public ResponseEntity<?> authenticationUserUsingEmail(@RequestBody LoginRequest request){
-        Authentication authentication = manager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+        Account tmpAccount = accountService.findByEmail(request.getEmail());
+        if(accountService.checkStatusAccount(tmpAccount.getStatus())) {
+            Authentication authentication = manager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        AccountDetailsImpl accDetails = (AccountDetailsImpl) authentication.getPrincipal();
-        String jwt = untils.generateJwtTokenForLogin(accDetails);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            AccountDetailsImpl accDetails = (AccountDetailsImpl) authentication.getPrincipal();
+            String jwt = untils.generateJwtTokenForLogin(accDetails);
 
-        List<String> roles = accDetails.getAuthorities().stream()
-                .map(item -> item.getAuthority())
-                .collect(Collectors.toList());
+            List<String> roles = accDetails.getAuthorities().stream()
+                    .map(item -> item.getAuthority())
+                    .collect(Collectors.toList());
 
 
-        return ResponseEntity.ok(
-                new UserInfoResponse(
-                        accDetails.getId(), accDetails.getUsername(),
-                        accDetails.getEmail(), accDetails.getPhone()
-                        , roles, jwt
-                ));
+            return ResponseEntity.ok(
+                    new UserInfoResponse(
+                            accDetails.getId(), accDetails.getUsername(),
+                            accDetails.getEmail(), accDetails.getPhone()
+                            , roles, jwt
+                    ));
+        }
+        return new ResponseEntity<>(new MessageResponse("Your account has been locked"), HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/register")
@@ -159,27 +165,54 @@ public class AuthController {
         return new RedirectView("");
     }
 
-    @PostMapping("/verifyPhone")
-    public ResponseEntity<?> getPhoneVerification(@RequestBody OtpRequest req) throws MessagingException {
-        if(accRepo.existsByPhone(req.getPhoneNumber())){
-            return new ResponseEntity<>(new MessageResponse("Your phone has been registered"),HttpStatus.BAD_REQUEST);
+    @PostMapping("/send-otp")
+    public ResponseEntity<?> sendOtp(@RequestBody OtpRequest otpRequest) {
+        if(accRepo.existsByPhone(otpRequest.getPhoneNumber())){
+            return new ResponseEntity<>( new MessageResponse("Phone number has been taken"), HttpStatus.BAD_REQUEST);
         }
-//        otpService.sendOtp(phone);
-          smsService.sendSMS(req);
-        return new ResponseEntity<>(HttpStatus.OK);
+        return new ResponseEntity<>(otpService.sendSMS(otpRequest), HttpStatus.OK);
     }
 
-    @GetMapping("/verifyPhoneSuccess")
-    public ResponseEntity<?> verifyPhoneSuccess(@RequestBody OtpValidationRequest req){
+    @PostMapping("/validate-otp")
+    public RedirectView validateOtp(@RequestBody OtpValidationRequest otpValidationRequest) {
+        if(otpService.validateOtp(otpValidationRequest)){
+            return new RedirectView(portSignup + "?phone="+otpValidationRequest.getPhoneNumber()+"&otp="+otpValidationRequest.getOtpNumber()+"");
+        }
+        return new RedirectView("");
+    }
 
-        return new ResponseEntity<>(smsService.validateOtp(req),HttpStatus.OK);
+    @PostMapping("/send-otp-login")
+    public ResponseEntity<?> sendOtpLogin(@RequestBody OtpRequest otpRequest) {
+        return new ResponseEntity<>(otpService.sendSMS(otpRequest), HttpStatus.OK);
+    }
+
+    @PostMapping("/loginByPhone")
+    public ResponseEntity<?> loginByPhone(@RequestBody OtpValidationRequest request){
+        System.out.println("Phone number " + request.getPhoneNumber() + " pasword: " + request.getOtpNumber());
+        Account acc = accountService.findByPhone(request.getPhoneNumber());
+        if(accountService.checkStatusAccount(acc.getStatus())){
+            if(otpService.validateOtp(request)){
+                String jwt = untils.generateTokenFromPhone(request.getPhoneNumber());
+                List<String> strRole= new ArrayList<String>();
+                strRole.add("ROLE_USER");
+                return ResponseEntity.ok(
+                        new UserInfoResponse(
+                                acc.getId(), acc.getUsername(),
+                                acc.getEmail(), acc.getPhone()
+                                ,strRole, jwt
+                        ));
+            }
+            return new ResponseEntity<>(new MessageResponse("Otp is not valid"), HttpStatus.BAD_REQUEST);
+        }
+        return new ResponseEntity<>(new MessageResponse("Your account is locked"), HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/registerByPhone")
-    public ResponseEntity<?> registerUserUsingPhone(@RequestBody RegisterRequest request){
-        String tokenSigunp = request.getTokenSignup();
-
-        if((!untils.validatePhone(request.getPhone(), tokenSigunp)) && (untils.validateJwtToken(tokenSigunp))){
+    public ResponseEntity<?> registerUserUsingPhone(@RequestBody RegisterByPhoneRequest request){
+        OtpValidationRequest req = new OtpValidationRequest();
+        req.setPhoneNumber(request.getPhone());
+        req.setOtpNumber(req.getOtpNumber());
+        if(otpService.validateOtp(req)){
             return new ResponseEntity<>(new MessageResponse("Error: Phone has not valid"),HttpStatus.NO_CONTENT);
         }
 
@@ -222,34 +255,49 @@ public class AuthController {
         createAccount.setRoles(roles);
         accRepo.save(createAccount);
 
-        RegisterReponse res = new RegisterReponse();
-        res.setEmail(createAccount.getEmail());
+        RegisterByPhoneResponse res = new RegisterByPhoneResponse();
+        res.setPhone(createAccount.getPhone());
         res.setPassword(request.getPassword());
 
         return new ResponseEntity<>(res, HttpStatus.CREATED);
     }
 
-    @PostMapping("/loginByPhone")
-    public ResponseEntity<?> authenticationUserUsingPhong(@RequestBody LoginByPhoneRequest request){
-        Authentication authentication = manager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getPhone(), request.getPassword())
-        );
+    @PutMapping("/changePassword-using-mail")
+    public ResponseEntity<?> changePasswordUsingEmail(@RequestBody ChangePasswordByEmail req){
+        if(untils.validateEmail(req.getEmail(), req.getTokenChangePass())){
+            Account account = accountService.findByEmail(req.getEmail());
+            account.setPassword(encoder.encode(req.getNewPassword()));
+            accRepo.save(account);
+            return new ResponseEntity<>(new MessageResponse("Your password has been changed"), HttpStatus.OK);
+        }
+        return new ResponseEntity<>(new MessageResponse("Your email is not valid"), HttpStatus.BAD_REQUEST);
+    }
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        AccountDetailsImpl accDetails = (AccountDetailsImpl) authentication.getPrincipal();
-        String jwt = untils.generateJwtTokenForLogin(accDetails);
+    @PutMapping("/changePassword-using-phone")
+    public ResponseEntity<?> changePasswordUsingPhone(@RequestBody ChangePasswordByPhone req){
+        OtpValidationRequest request = new OtpValidationRequest(req.getPhoneNumber(), req.getOtpChangePass());
+        if(otpService.validateOtp(request)){
+            Account account = accountService.findByPhone(req.getPhoneNumber());
+            account.setPassword(encoder.encode(req.getNewPassword()));
+            accRepo.save(account);
+            return new ResponseEntity<>(new MessageResponse("Your password has been changed"), HttpStatus.OK);
+        }
+        return new ResponseEntity<>(new MessageResponse("Your email is not valid"), HttpStatus.BAD_REQUEST);
+    }
 
-        List<String> roles = accDetails.getAuthorities().stream()
-                .map(item -> item.getAuthority())
-                .collect(Collectors.toList());
+    @PostMapping("/verifyEmailChangePass")
+    public RedirectView getEmailChangePassVerification(@RequestParam String email) throws MessagingException {
+        String jwt = untils.generateTokenToSignup(email);
+        mailService.SendMail(email,jwt);
+        return new RedirectView(portChangePass + "?email="+email+"&token="+jwt+"");
+    }
 
-
-        return ResponseEntity.ok(
-                new UserInfoResponse(
-                        accDetails.getId(), accDetails.getUsername(),
-                        accDetails.getEmail(), accDetails.getPhone()
-                        , roles, jwt
-                ));
+    @PostMapping("/validate-otp-change-pass")
+    public RedirectView validateOtpChangePass(@RequestBody OtpValidationRequest otpValidationRequest) {
+        if(otpService.validateOtp(otpValidationRequest)){
+            return new RedirectView(portChangePass + "?phone="+otpValidationRequest.getPhoneNumber()+"&otp="+otpValidationRequest.getOtpNumber()+"");
+        }
+        return new RedirectView("");
     }
 
 
