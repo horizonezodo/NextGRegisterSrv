@@ -6,4 +6,5 @@ import lombok.Data;
 public class RegisterByPhoneResponse {
     private String phone;
     private String password;
+    private String email;
 }

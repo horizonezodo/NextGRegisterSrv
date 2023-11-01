@@ -258,6 +258,7 @@ public class AuthController {
         RegisterByPhoneResponse res = new RegisterByPhoneResponse();
         res.setPhone(createAccount.getPhone());
         res.setPassword(request.getPassword());
+        res.setEmail(createAccount.getEmail());
 
         return new ResponseEntity<>(res, HttpStatus.CREATED);
     }
