@@ -167,14 +167,26 @@ public class AuthController {
 
     @PostMapping("/send-otp")
     public ResponseEntity<?> sendOtp(@RequestBody OtpRequest otpRequest) {
-        if(accRepo.existsByPhone(otpRequest.getPhoneNumber())){
+        String phone = "+84"+ otpRequest.getPhoneNumber();
+        OtpRequest req = new OtpRequest(phone);
+        if(accRepo.existsByPhone(phone)){
             return new ResponseEntity<>( new MessageResponse("Phone number has been taken"), HttpStatus.BAD_REQUEST);
         }
-        return new ResponseEntity<>(otpService.sendSMS(otpRequest), HttpStatus.OK);
+        return new ResponseEntity<>(otpService.sendSMS(req), HttpStatus.OK);
     }
 
+//    @PostMapping("/validate-otp")
+//    public RedirectView validateOtp(@RequestBody OtpValidationRequest otpValidationRequest) {
+//        if(otpService.validateOtp(otpValidationRequest)){
+//            return new RedirectView(portSignup + "?phone="+otpValidationRequest.getPhoneNumber()+"&otp="+otpValidationRequest.getOtpNumber()+"");
+//        }
+//        return new RedirectView("");
+//    }
+
     @PostMapping("/validate-otp")
-    public RedirectView validateOtp(@RequestBody OtpValidationRequest otpValidationRequest) {
+    public RedirectView validateOtp(@RequestParam String phone,@RequestParam String otp) {
+        String tmpPhone = "+84" + phone;
+        OtpValidationRequest otpValidationRequest = new OtpValidationRequest(tmpPhone,otp);
         if(otpService.validateOtp(otpValidationRequest)){
             return new RedirectView(portSignup + "?phone="+otpValidationRequest.getPhoneNumber()+"&otp="+otpValidationRequest.getOtpNumber()+"");
         }
@@ -183,16 +195,21 @@ public class AuthController {
 
     @PostMapping("/send-otp-login")
     public ResponseEntity<?> sendOtpLogin(@RequestBody OtpRequest otpRequest) {
-        return new ResponseEntity<>(otpService.sendSMS(otpRequest), HttpStatus.OK);
+        String phone = "+84"+ otpRequest.getPhoneNumber();
+        OtpRequest req = new OtpRequest(phone);
+        return new ResponseEntity<>(otpService.sendSMS(req), HttpStatus.OK);
     }
 
     @PostMapping("/loginByPhone")
     public ResponseEntity<?> loginByPhone(@RequestBody OtpValidationRequest request){
-        System.out.println("Phone number " + request.getPhoneNumber() + " pasword: " + request.getOtpNumber());
-        Account acc = accountService.findByPhone(request.getPhoneNumber());
+
+        String tmpPhone = "+84"+request.getPhoneNumber();
+        System.out.println("Phone number " + tmpPhone+ " pasword: " + request.getOtpNumber());
+        OtpValidationRequest req = new OtpValidationRequest(tmpPhone,request.getOtpNumber());
+        Account acc = accountService.findByPhone(tmpPhone);
         if(accountService.checkStatusAccount(acc.getStatus())){
-            if(otpService.validateOtp(request)){
-                String jwt = untils.generateTokenFromPhone(request.getPhoneNumber());
+            if(otpService.validateOtp(req)){
+                String jwt = untils.generateTokenFromPhone(tmpPhone);
                 List<String> strRole= new ArrayList<String>();
                 strRole.add("ROLE_USER");
                 return ResponseEntity.ok(
@@ -210,14 +227,14 @@ public class AuthController {
     @PostMapping("/registerByPhone")
     public ResponseEntity<?> registerUserUsingPhone(@RequestBody RegisterByPhoneRequest request){
         OtpValidationRequest req = new OtpValidationRequest();
-        req.setPhoneNumber(request.getPhone());
+        req.setPhoneNumber("+84" + request.getPhone());
         req.setOtpNumber(req.getOtpNumber());
         if(otpService.validateOtp(req)){
             return new ResponseEntity<>(new MessageResponse("Error: Phone has not valid"),HttpStatus.NO_CONTENT);
         }
 
         Account createAccount = new Account(request.getUsername(), request.getEmail(),
-                encoder.encode(request.getPassword()), request.getPhone(), request.getFirstName(), request.getLastName(), request.getStatus());
+                encoder.encode(request.getPassword()),"+84"+request.getPhone(), request.getFirstName(), request.getLastName(), request.getStatus());
 
         Set<String> strRole = request.getRoles();
         Set<Role> roles = new HashSet<>();
@@ -276,7 +293,7 @@ public class AuthController {
 
     @PutMapping("/changePassword-using-phone")
     public ResponseEntity<?> changePasswordUsingPhone(@RequestBody ChangePasswordByPhone req){
-        OtpValidationRequest request = new OtpValidationRequest(req.getPhoneNumber(), req.getOtpChangePass());
+        OtpValidationRequest request = new OtpValidationRequest("+84"+req.getPhoneNumber(), req.getOtpChangePass());
         if(otpService.validateOtp(request)){
             Account account = accountService.findByPhone(req.getPhoneNumber());
             account.setPassword(encoder.encode(req.getNewPassword()));
@@ -295,8 +312,10 @@ public class AuthController {
 
     @PostMapping("/validate-otp-change-pass")
     public RedirectView validateOtpChangePass(@RequestBody OtpValidationRequest otpValidationRequest) {
-        if(otpService.validateOtp(otpValidationRequest)){
-            return new RedirectView(portChangePass + "?phone="+otpValidationRequest.getPhoneNumber()+"&otp="+otpValidationRequest.getOtpNumber()+"");
+        String tmpPhone = "+84" + otpValidationRequest.getOtpNumber();
+        OtpValidationRequest req = new OtpValidationRequest(tmpPhone,otpValidationRequest.getOtpNumber());
+        if(otpService.validateOtp(req)){
+            return new RedirectView(portChangePass + "?phone="+req.getPhoneNumber()+"&otp="+otpValidationRequest.getOtpNumber()+"");
         }
         return new RedirectView("");
     }
