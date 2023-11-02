@@ -322,7 +322,7 @@ public class AuthController {
             OtpValidationRequest req = new OtpValidationRequest(tmpPhone,otpValidationRequest.getOtpNumber());
         if(otpService.validateOtp(req)){
             String jwt = untils.generateTokenFromPhone(tmpPhone);
-            return new RedirectView(portChangePass + "?phone="+tmpPhone+"&token="+jwt+"");
+            return new RedirectView(portChangePass + "?phone="+otpValidationRequest.getPhoneNumber()+"&token="+jwt+"");
         }
         return new RedirectView("");
     }
