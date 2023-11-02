@@ -302,7 +302,7 @@ public class AuthController {
             account.setPassword(encoder.encode(req.getNewPassword()));
             accRepo.save(account);
             ChangePassByPhoneResponse res = new ChangePassByPhoneResponse();
-            res.setPhoneNumber(account.getPhone());
+            res.setEmail(account.getEmail());
             res.setNewPass(req.getNewPassword());
             return new ResponseEntity<>(res, HttpStatus.OK);
         }

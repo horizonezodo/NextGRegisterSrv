@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class ChangePassByPhoneResponse {
-    String phoneNumber;
+    String Email;
     String newPass;
 }
