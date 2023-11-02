@@ -93,6 +93,14 @@ public class JwtUtils {
                 .parseClaimsJws(token).getBody().get("phone");
     }
 
+    public boolean validatePhone(String phone , String token){
+        String temPhone = getPhoneFromJwtToken(token);
+        if(temPhone.equals(phone)){
+            return true;
+        }
+        return false;
+    }
+
 
 
 

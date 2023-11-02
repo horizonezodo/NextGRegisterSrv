@@ -293,9 +293,9 @@ public class AuthController {
 
     @PutMapping("/changePassword-using-phone")
     public ResponseEntity<?> changePasswordUsingPhone(@RequestBody ChangePasswordByPhone req){
-        OtpValidationRequest request = new OtpValidationRequest("+84"+req.getPhoneNumber(), req.getOtpChangePass());
-        if(otpService.validateOtp(request)){
-            Account account = accountService.findByPhone(req.getPhoneNumber());
+        String tmpPhone = "+84"+req.getPhoneNumber();
+        if(untils.validatePhone(tmpPhone, req.getTokenChangePass())){
+            Account account = accountService.findByPhone(tmpPhone);
             account.setPassword(encoder.encode(req.getNewPassword()));
             accRepo.save(account);
             return new ResponseEntity<>(new MessageResponse("Your password has been changed"), HttpStatus.OK);
@@ -306,19 +306,22 @@ public class AuthController {
     @PostMapping("/verifyEmailChangePass")
     public RedirectView getEmailChangePassVerification(@RequestParam String email) throws MessagingException {
         String jwt = untils.generateTokenToSignup(email);
-        mailService.SendMail(email,jwt);
+        mailService.SendMailChangePass(email,jwt);
         return new RedirectView(portChangePass + "?email="+email+"&token="+jwt+"");
     }
 
     @PostMapping("/validate-otp-change-pass")
-    public RedirectView validateOtpChangePass(@RequestBody OtpValidationRequest otpValidationRequest) {
-        String tmpPhone = "+84" + otpValidationRequest.getOtpNumber();
-        OtpValidationRequest req = new OtpValidationRequest(tmpPhone,otpValidationRequest.getOtpNumber());
+    public RedirectView validateOtp(@RequestBody OtpValidationRequest otpValidationRequest) {
+            String tmpPhone = "+84" + otpValidationRequest.getPhoneNumber();
+            OtpValidationRequest req = new OtpValidationRequest(tmpPhone,otpValidationRequest.getOtpNumber());
         if(otpService.validateOtp(req)){
-            return new RedirectView(portChangePass + "?phone="+req.getPhoneNumber()+"&otp="+otpValidationRequest.getOtpNumber()+"");
+            String jwt = untils.generateTokenFromPhone(tmpPhone);
+            return new RedirectView(portChangePass + "?phone="+tmpPhone+"&token="+jwt+"");
         }
         return new RedirectView("");
     }
+
+
 
 
 }

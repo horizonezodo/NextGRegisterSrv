@@ -6,5 +6,5 @@ import lombok.Data;
 public class ChangePasswordByPhone {
     private String phoneNumber;
     private String newPassword;
-    private String otpChangePass;
+    private String tokenChangePass;
 }
