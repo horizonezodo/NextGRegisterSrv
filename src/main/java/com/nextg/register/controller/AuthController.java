@@ -172,6 +172,7 @@ public class AuthController {
             return new ResponseEntity<>( new MessageResponse("Phone number has been taken"), HttpStatus.BAD_REQUEST);
         }
         return new ResponseEntity<>(otpService.sendSMS(req), HttpStatus.OK);
+
     }
 
 //    @PostMapping("/validate-otp")
@@ -183,13 +184,16 @@ public class AuthController {
 //    }
 
     @PostMapping("/validate-otp")
-    public RedirectView validateOtp(@RequestParam String phone,@RequestParam String otp) {
+    public ResponseEntity<?> validateOtp(@RequestParam String phone,@RequestParam String otp) {
         String tmpPhone = "+84" + phone;
         OtpValidationRequest otpValidationRequest = new OtpValidationRequest(tmpPhone,otp);
         if(otpService.validateOtp(otpValidationRequest)){
-            return new RedirectView(portSignup + "?phone="+otpValidationRequest.getPhoneNumber()+"&otp="+otpValidationRequest.getOtpNumber()+"");
+            ValidateSuccessOtpResponse res = new ValidateSuccessOtpResponse();
+            res.setPhoneNumber(phone);
+            res.setOtp(otp);
+            return new ResponseEntity<>(res,HttpStatus.OK);
         }
-        return new RedirectView("");
+        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/send-otp-login")
@@ -317,14 +321,17 @@ public class AuthController {
     }
 
     @PostMapping("/validate-otp-change-pass")
-    public RedirectView validateOtp(@RequestBody OtpValidationRequest otpValidationRequest) {
+    public ResponseEntity<?> validateOtp(@RequestBody OtpValidationRequest otpValidationRequest) {
             String tmpPhone = "+84" + otpValidationRequest.getPhoneNumber();
             OtpValidationRequest req = new OtpValidationRequest(tmpPhone,otpValidationRequest.getOtpNumber());
         if(otpService.validateOtp(req)){
             String jwt = untils.generateTokenFromPhone(tmpPhone);
-            return new RedirectView(portChangePass + "?phone="+otpValidationRequest.getPhoneNumber()+"&token="+jwt+"");
+            ValidateSuccessOtpChangePassResponse res = new ValidateSuccessOtpChangePassResponse();
+            res.setPhoneNumber(otpValidationRequest.getPhoneNumber());
+            res.setToken(jwt);
+            return new ResponseEntity<>(res,HttpStatus.OK);
         }
-        return new RedirectView("");
+        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
 
 
