@@ -36,11 +36,11 @@ public class OtpService {
             PhoneNumber from = new PhoneNumber(twilioConfig.getTrialNumber()); // from
             String otp = generateOTP();
             String otpMessage = "Dear Customer , Your OTP is  " + otp + " for sending sms through Spring boot application. Thank You.";
-//            Message message = Message
-//                    .creator(to, from,
-//                            otpMessage)
-//                    .create();
-//            otpMap.put(otpRequest.getPhoneNumber(), otp);
+            Message message = Message
+                    .creator(to, from,
+                            otpMessage)
+                    .create();
+            otpMap.put(otpRequest.getPhoneNumber(), otp);
             System.out.println(otp);
             otpResponseDto = new OtpResponse(OtpStatus.DELIVERED, otpMessage);
         } catch (Exception e) {
