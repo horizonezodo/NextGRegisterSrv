@@ -156,13 +156,12 @@ public class AuthController {
     }
 
     @GetMapping("/verifySuccess")
-    public RedirectView verifySuccess(@RequestParam String email, @RequestParam String token){
-
-        System.out.println("token " + token + " email : " + email);
+    public ResponseEntity<?> verifySuccess(@RequestParam String email, @RequestParam String token){
         if(untils.validateEmail(email,token)){
-            return new RedirectView(portSignup + "?email="+email+"&token="+token+"");
+            VerifyResponse res = new VerifyResponse(email,token);
+            return new ResponseEntity<>(res,HttpStatus.OK);
         }
-        return new RedirectView("");
+        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/send-otp")
@@ -310,10 +309,11 @@ public class AuthController {
     }
 
     @PostMapping("/verifyEmailChangePass")
-    public RedirectView getEmailChangePassVerification(@RequestParam String email) throws MessagingException {
+    public ResponseEntity<?> getEmailChangePassVerification(@RequestParam String email) throws MessagingException {
         String jwt = untils.generateTokenToSignup(email);
         mailService.SendMailChangePass(email,jwt);
-        return new RedirectView(portChangePass + "?email="+email+"&token="+jwt+"");
+        VerifyResponse res = new VerifyResponse(email,jwt);
+        return new ResponseEntity<>(res,HttpStatus.OK);
     }
 
     @PostMapping("/validate-otp-change-pass")
