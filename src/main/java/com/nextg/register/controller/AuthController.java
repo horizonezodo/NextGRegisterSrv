@@ -286,7 +286,10 @@ public class AuthController {
             Account account = accountService.findByEmail(req.getEmail());
             account.setPassword(encoder.encode(req.getNewPassword()));
             accRepo.save(account);
-            return new ResponseEntity<>(new MessageResponse("Your password has been changed"), HttpStatus.OK);
+            ChangePasswordByEmailResponse res = new ChangePasswordByEmailResponse();
+            res.setEmail(account.getEmail());
+            res.setNewPass(req.getNewPassword());
+            return new ResponseEntity<>(res, HttpStatus.OK);
         }
         return new ResponseEntity<>(new MessageResponse("Your email is not valid"), HttpStatus.BAD_REQUEST);
     }
@@ -298,7 +301,10 @@ public class AuthController {
             Account account = accountService.findByPhone(tmpPhone);
             account.setPassword(encoder.encode(req.getNewPassword()));
             accRepo.save(account);
-            return new ResponseEntity<>(new MessageResponse("Your password has been changed"), HttpStatus.OK);
+            ChangePassByPhoneResponse res = new ChangePassByPhoneResponse();
+            res.setPhoneNumber(account.getPhone());
+            res.setNewPass(req.getNewPassword());
+            return new ResponseEntity<>(res, HttpStatus.OK);
         }
         return new ResponseEntity<>(new MessageResponse("Your email is not valid"), HttpStatus.BAD_REQUEST);
     }
