@@ -143,13 +143,13 @@ public class AuthController {
     }
 
     @PostMapping("/verifyEmail")
-    public ResponseEntity<?> getEmailVerification(@RequestParam String email) throws MessagingException {
-        if(accRepo.existsByEmail(email)){
+    public ResponseEntity<?> getEmailVerification(@RequestBody EmailVerifyRequest request) throws MessagingException {
+        if(accRepo.existsByEmail(request.getEmail())){
             return new ResponseEntity<>(new MessageResponse("Your email has been registered"),HttpStatus.BAD_REQUEST);
         }
 
-        String jwt = untils.generateTokenToSignup(email);
-        mailService.SendMail(email,jwt);
+        String jwt = untils.generateTokenToSignup(request.getEmail());
+        mailService.SendMail(request.getEmail(), jwt);
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
@@ -299,16 +299,16 @@ public class AuthController {
     }
 
     @PostMapping("/verifyEmailChangePass")
-    public ResponseEntity<?> getEmailChangePassVerification(@RequestParam String email) {
+    public ResponseEntity<?> getEmailChangePassVerification(@RequestBody EmailVerifyRequest request) {
     	String jwt = null;
         try {
-        	jwt = untils.generateTokenToSignup(email);
-			mailService.SendMailChangePass(email,jwt);
+        	jwt = untils.generateTokenToSignup(request.getEmail());
+			mailService.SendMailChangePass(request.getEmail(), jwt);
 		} catch (MessagingException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-        VerifyResponse res = new VerifyResponse(email,jwt);
+        VerifyResponse res = new VerifyResponse(request.getEmail(), jwt);
         return new ResponseEntity<>(res,HttpStatus.OK);
     }
 
@@ -353,13 +353,13 @@ public class AuthController {
     }
 
     @PostMapping("/emailVerify")
-    public ResponseEntity<?> getEmailVerify(@RequestParam String email) throws MessagingException {
-        if(accRepo.existsByEmail(email)){
+    public ResponseEntity<?> getEmailVerify(@RequestBody EmailVerifyRequest request) throws MessagingException {
+        if(accRepo.existsByEmail(request.getEmail())){
             return new ResponseEntity<>(new MessageResponse("Your email has been registered"),HttpStatus.BAD_REQUEST);
         }
 
-        String jwt = untils.generateTokenToSignup(email);
-        mailService.SendMailVerifyed(email,jwt);
+        String jwt = untils.generateTokenToSignup(request.getEmail());
+        mailService.SendMailVerifyed(request.getEmail(), jwt);
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
