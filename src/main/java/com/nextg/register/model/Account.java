@@ -43,6 +43,14 @@ public class Account {
 
     private String expiredRankDate;
 
+    private String imageUrl;
+
+    private String bio;
+
+    private boolean emailVerifired;
+
+    private boolean phoneVerifired;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(	name = "account_roles",
             joinColumns = @JoinColumn(name = "accounts_id"),

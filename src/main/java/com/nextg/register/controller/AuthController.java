@@ -30,7 +30,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.mail.MessagingException;
-
+@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -133,6 +133,8 @@ public class AuthController {
             });
         }
         createAccount.setRoles(roles);
+        createAccount.setPhoneVerifired(false);
+        createAccount.setEmailVerifired(true);
         accRepo.save(createAccount);
 
         RegisterReponse res = new RegisterReponse();
@@ -259,6 +261,8 @@ public class AuthController {
             });
         }
         createAccount.setRoles(roles);
+        createAccount.setPhoneVerifired(true);
+        createAccount.setEmailVerifired(false);
         accRepo.save(createAccount);
 
         RegisterByPhoneResponse res = new RegisterByPhoneResponse();
