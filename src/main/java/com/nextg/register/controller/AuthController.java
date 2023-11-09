@@ -368,8 +368,11 @@ public class AuthController {
     }
 
     @GetMapping("/verifiedSuccess")
-    public ResponseEntity<?> verifySuccessEmail(@RequestBody VerifyEmailRequest req){
-        if(untils.validateEmail(req.getEmail(), req.getToken())){
+    public ResponseEntity<?> verifySuccessEmail(@RequestParam String email,@RequestParam String token ){
+        if(untils.validateEmail(email, token)){
+            Account acc = accountService.findByEmail(email);
+            acc.setEmail(email);
+            accRepo.save(acc);
             return new ResponseEntity<>(HttpStatus.OK);
         }
         return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
@@ -378,6 +381,9 @@ public class AuthController {
     @PostMapping("/validate-otp-success")
     public ResponseEntity<?> validatePhoneNumber(@RequestBody OtpValidationRequest request) {
         if(otpService.validateOtp(request)){
+            Account acc = accountService.findByPhone(request.getPhoneNumber());
+            acc.setPhone(request.getPhoneNumber());
+            accRepo.save(acc);
             return new ResponseEntity<>(HttpStatus.OK);
         }
         return new ResponseEntity<>(HttpStatus.BAD_REQUEST);

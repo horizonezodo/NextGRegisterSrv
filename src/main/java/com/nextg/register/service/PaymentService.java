@@ -1,15 +1,10 @@
 package com.nextg.register.service;
 
+import com.paypal.api.payments.*;
 import com.paypal.base.rest.APIContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.paypal.api.payments.Amount;
-import com.paypal.api.payments.Payer;
-import com.paypal.api.payments.Payment;
-import com.paypal.api.payments.PaymentExecution;
-import com.paypal.api.payments.RedirectUrls;
-import com.paypal.api.payments.Transaction;
 import com.paypal.base.rest.APIContext;
 import com.paypal.base.rest.PayPalRESTException;
 
@@ -18,11 +13,14 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
+
 @Service
 public class PaymentService {
 
     @Autowired
     private APIContext apiContext;
+
+
 
     public Payment createPayment(
             Double total,
@@ -66,4 +64,5 @@ public class PaymentService {
         paymentExecute.setPayerId(payerId);
         return payment.execute(apiContext, paymentExecute);
     }
+
 }

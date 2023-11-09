@@ -23,6 +23,9 @@ public class MailService {
     @Value("${app.client.url}")
     private String portUrl;
 
+    @Value("${server.url}")
+    private String backendUrl;
+
     @Autowired
     private JavaMailSender mailSender;
 
@@ -70,7 +73,7 @@ public class MailService {
         message.setRecipients(MimeMessage.RecipientType.TO, mail);
         message.setSubject("Verification Email");
         String htmlContent = readHtmlEmailTemplate();
-        htmlContent = htmlContent.replace("{{var_href}}", portUrl+"home?email="+mail + "&token="+token);
+        htmlContent = htmlContent.replace("{{var_href}}", backendUrl+"verifiedSuccess?email="+mail + "&token="+token);
         message.setContent(htmlContent,"text/html; charset=utf-8");
         mailSender.send(message);
     }
