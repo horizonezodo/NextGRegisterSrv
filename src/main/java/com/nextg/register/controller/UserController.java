@@ -2,7 +2,12 @@ package com.nextg.register.controller;
 
 import com.nextg.register.config.PaypalConfig;
 import com.nextg.register.model.Account;
+import com.nextg.register.model.DiscountCode;
+import com.nextg.register.model.Transaction;
 import com.nextg.register.repo.AccountRepository;
+import com.nextg.register.repo.DiscountCodeRepository;
+import com.nextg.register.repo.TransactionRepository;
+import com.nextg.register.request.CardPaymentRequest;
 import com.nextg.register.request.ChangePasswordRequest;
 import com.nextg.register.request.PaypalRequest;
 import com.nextg.register.request.UpdateAccountInfoRequest;
@@ -10,11 +15,13 @@ import com.nextg.register.response.AccountInfoResponse;
 import com.nextg.register.response.MessageResponse;
 import com.nextg.register.response.UserInfoResponse;
 import com.nextg.register.service.AccountServiceImpl;
+import com.nextg.register.service.PayPalCardPayment;
 import com.nextg.register.service.PaymentService;
 import com.paypal.api.payments.Links;
 import com.paypal.api.payments.Payment;
 import com.paypal.base.rest.APIContext;
 import com.paypal.base.rest.PayPalRESTException;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -25,10 +32,9 @@ import org.springframework.web.client.RestTemplate;
 
 import javax.security.auth.login.AccountException;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -50,10 +56,16 @@ public class UserController {
     @Autowired
     PaypalConfig config;
 
-    public static final String SUCCESS_URL = "pay/success";
-    public static final String CANCEL_URL = "pay/cancel";
+    @Autowired
+    DiscountCodeRepository discountCodeRepository;
 
-    @Value("${app.client.url}")
+    @Autowired
+    TransactionRepository tranRepo;
+
+    public static final String SUCCESS_URL = "account/pay/success";
+    public static final String CANCEL_URL = "account/pay/cancel";
+
+    @Value("${server.url}")
     private String portUrl;
 
     @Value("${paypal.client.id}")
@@ -63,6 +75,8 @@ public class UserController {
 
     @Autowired
     private APIContext apiContext;
+    @Autowired
+    PayPalCardPayment payment;
 
     @GetMapping("/info")
     private ResponseEntity<?> getAccountInfor(@RequestHeader("Authorization")String jwt) throws AccountException {
@@ -73,9 +87,12 @@ public class UserController {
             info.setEmail(acc.getEmail());
             info.setEmailVerifired(acc.isEmailVerifired());
             info.setPhoneVerifired(acc.isPhoneVerifired());
-            info.setName(acc.getFirstName());
+            info.setFirstName(acc.getFirstName());
+            info.setLastName(acc.getLastName());
             info.setPhoneNumber(acc.getPhone());
             info.setImageUrl(acc.getImageUrl());
+            info.setRankId(acc.getRank_account());
+            info.setExpiredDate(acc.getExpiredRankDate());
             info.setBio(acc.getBio());
             return new ResponseEntity<>(info, HttpStatus.OK);
         }
@@ -104,7 +121,8 @@ public class UserController {
             Account acc = accService.findUserProfileByJwt(token);
             acc.setBio(request.getBio());
             acc.setImageUrl(request.getImageUrl());
-            acc.setFirstName(request.getName());
+            acc.setFirstName(request.getFirstName());
+            acc.setLastName(request.getLastName());
             accRepo.save(acc);
             return new ResponseEntity<>(HttpStatus.OK);
         }
@@ -115,15 +133,21 @@ public class UserController {
     @PostMapping("/pay")
     public String paymentWithPayPal(@RequestBody PaypalRequest request) {
         try {
-            Payment payment = service.createPayment(request.getTotal(), "USD", "paypal",
+            Payment payment = service.createPayment(request.getTotal(), request.getCurrency(), "paypal",
                     "sale", request.getDescription(), portUrl + CANCEL_URL,
-                    portUrl + SUCCESS_URL);
+                    portUrl + SUCCESS_URL + "/userId=" + request.getUserId() + "&rankId=" + request.getRankId());
             for(Links link:payment.getLinks()) {
                 if(link.getRel().equals("approval_url")) {
+                    Transaction tran = new Transaction();
+                    tran.setPaymentType("paypal");
+                    tran.setAmount(request.getTotal());
+                    tran.setTax(request.getTax());
+                    tran.setDiscount(request.getDiscount());
+                    tran.setPaymentDate(request.getDayPayment());
+                    tranRepo.save(tran);
                     return "redirect:"+link.getHref();
                 }
             }
-
         } catch (PayPalRESTException e) {
 
             e.printStackTrace();
@@ -151,32 +175,54 @@ public class UserController {
     }
 
     @PostMapping("/pay-card")
-    public String checkout(@RequestHeader("Authorization")String jwt) throws Exception {
-        try {
+    public ResponseEntity<?> checkout(@RequestBody CardPaymentRequest cardRequest) throws Exception {
             String paypalApiUrl = "https://api-m.sandbox.paypal.com/v2/checkout/orders";
-
-            RestTemplate restTemplate = new RestTemplate();
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", apiContext.getAccessToken());
-//            headers.setBasicAuth(clientId, clientSecret);
-
-            HttpEntity<String> requestEntity = new HttpEntity<>("{ \"intent\": \"CAPTURE\", \"purchase_units\": [ { \"reference_id\": \"d9f80740-38f0-11e8-b467-0ed5f89f718b\",\"description\": \"Buy member\", \"amount\": { \"currency_code\": \"USD\", \"value\": \"100.00\" } } ], \"payment_source\": { \"card\": { \"name\": \"Nguyen Hiep Duc\" \"number\": \"4032034096357945\", \"security_code\": \"668\", \"expiry\": \"05/2025\", \"return_url\": \""+portUrl + SUCCESS_URL+"\", \"cancel_url\": \""+portUrl + CANCEL_URL+"\" } } }", headers);
-
-            ResponseEntity<String> responseEntity = restTemplate.postForEntity(paypalApiUrl, requestEntity, String.class);
-
-            // Lấy phản hồi từ ResponseEntity
-            String response = responseEntity.getBody();
-
-            // In phản hồi ra màn hình
-            System.out.println(response);
-
-            return response;
+            String jsonBody = "{ \"intent\": \"CAPTURE\", \"purchase_units\": [ \"description\": \""+cardRequest.getDescription()+"\", \"amount\": { \"currency_code\": \""+cardRequest.getCurrency()+"\", \"value\": \""+cardRequest.getAmount()+"\" } } ], \"payment_source\": { \"card\": { \"name\": \""+cardRequest.getCardHolderName()+"\", \"number\": \""+cardRequest.getCardNumber()+"\", \"security_code\": \""+cardRequest.getCvc()+"\", \"expiry\": \""+cardRequest.getDayExpired()+"\", \"return_url\": \"" + portUrl + SUCCESS_URL + "\", \"cancel_url\": \"" + portUrl + CANCEL_URL + "\" } } }";
+            String paymentStatus="";
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(paypalApiUrl))
+                    .header("Content-Type", "application/json")
+                    .header("PayPal-Request-Id","7b92603e-77ed-4896-8e78-5dea2050476a")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .header("Authorization","Bearer " + service.getAccessToken())
+                    .build();
+            HttpClient httpClient = HttpClient.newHttpClient();
+            Transaction tran = new Transaction();
+            tran.setDiscount(cardRequest.getDiscount());
+            tran.setAmount(cardRequest.getAmount());
+            tran.setPaymentDate(cardRequest.getDayPayment());
+            tran.setCurrency_code(cardRequest.getCurrency());
+            tran.setAccount_id((long) cardRequest.getUserId());
+            tran.setPaymentType(cardRequest.getPaymentType());
+            tran.setTax(cardRequest.getTax());
+           try{
+            HttpResponse<String> response = httpClient.send(request,HttpResponse.BodyHandlers.ofString());
+            String res = response.body();
+            JSONObject jsonObject = new JSONObject(res);
+            paymentStatus = jsonObject.getString("status");
+            if(paymentStatus.equalsIgnoreCase("COMPLETED"))
+            {
+                Account account = accService.findAccountById((long) cardRequest.getUserId());
+                account.setRank_account(cardRequest.getRankId());
+                account.setExpiredRankDate(cardRequest.getRank_expired_date());
+                accRepo.save(account);
+                tran.setStatus("Success");
+                tranRepo.save(tran);
+                return new ResponseEntity<>(HttpStatus.OK);
+            }
         } catch (Exception e) {
             e.printStackTrace();
-            return "Error occurred: " + e.getMessage();
         }
+        tran.setStatus("Failure");
+        tranRepo.save(tran);
+        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
+
+    @GetMapping("/getDiscountPercent")
+    public ResponseEntity<?> getDiscountPercent(@RequestBody String discountCode){
+        DiscountCode discount = discountCodeRepository.findByCode(discountCode);
+        return new ResponseEntity<>(discount.getDiscountPercent(),HttpStatus.OK);
     }
 
 }

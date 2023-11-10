@@ -54,7 +54,7 @@ public class AccountServiceImpl implements AccountService{
         if(email == null){
             acc = accRepo.findByPhone(phoneNumber);
         }
-         acc = accRepo.findByEmail(email);
+         else{acc = accRepo.findByEmail(email);}
 
         if(acc.isPresent()){
             return acc.get();

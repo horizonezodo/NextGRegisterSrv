@@ -66,14 +66,14 @@ public class MailService {
         mailSender.send(message);
     }
 
-    public void SendMailVerifyed(String mail,String token) throws MessagingException {
+    public void SendMailVerifyed(String mail,String token,String phone) throws MessagingException {
         MimeMessage message = mailSender.createMimeMessage();
 
         message.setFrom(to);
         message.setRecipients(MimeMessage.RecipientType.TO, mail);
         message.setSubject("Verification Email");
         String htmlContent = readHtmlEmailTemplate();
-        htmlContent = htmlContent.replace("{{var_href}}", backendUrl+"verifiedSuccess?email="+mail + "&token="+token);
+        htmlContent = htmlContent.replace("{{var_href}}", backendUrl+"auth/verifiedSuccess?email="+mail + "&token="+token + "&phone="+phone);
         message.setContent(htmlContent,"text/html; charset=utf-8");
         mailSender.send(message);
     }

@@ -20,6 +20,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
@@ -60,6 +61,7 @@ public class AuthController {
 
     @Autowired
     private RefreshTokenServiceImpl refreshService;
+
 
 
     @PostMapping("/login")
@@ -357,32 +359,46 @@ public class AuthController {
     }
 
     @PostMapping("/emailVerify")
-    public ResponseEntity<?> getEmailVerify(@RequestBody EmailVerifyRequest request) throws MessagingException {
+    public ResponseEntity<?> getEmailVerify(@RequestBody EmailVerifyRequest request, @RequestHeader("Authorization")String token) throws MessagingException {
         if(accRepo.existsByEmail(request.getEmail())){
             return new ResponseEntity<>(new MessageResponse("Your email has been registered"),HttpStatus.BAD_REQUEST);
         }
+        String oldPhone="";
+        if (StringUtils.hasText(token) && token.startsWith("Bearer ")) {
+            String tmpToken = token.substring(7, token.length());
+            oldPhone = untils.getPhoneFromJwtToken(tmpToken);
+        }
 
         String jwt = untils.generateTokenToSignup(request.getEmail());
-        mailService.SendMailVerifyed(request.getEmail(), jwt);
+        mailService.SendMailVerifyed(request.getEmail(), jwt,oldPhone);
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
     @GetMapping("/verifiedSuccess")
-    public ResponseEntity<?> verifySuccessEmail(@RequestParam String email,@RequestParam String token ){
-        if(untils.validateEmail(email, token)){
-            Account acc = accountService.findByEmail(email);
-            acc.setEmail(email);
-            accRepo.save(acc);
-            return new ResponseEntity<>(HttpStatus.OK);
-        }
+    public ResponseEntity<?> verifySuccessEmail(@RequestParam String email,@RequestParam String token, @RequestParam String phone){
+        phone = "+"+phone.trim();
+            if(untils.validateEmail(email,token)) {
+                Account acc = accountService.findByPhone(phone);
+                acc.setEmail(email);
+                acc.setEmailVerifired(true);
+                accRepo.save(acc);
+                return new ResponseEntity<>(HttpStatus.OK);
+            }
         return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/validate-otp-success")
-    public ResponseEntity<?> validatePhoneNumber(@RequestBody OtpValidationRequest request) {
+    public ResponseEntity<?> validatePhoneNumber(@RequestBody OtpValidationRequest request,@RequestHeader("Authorization")String jwt) {
         if(otpService.validateOtp(request)){
-            Account acc = accountService.findByPhone(request.getPhoneNumber());
+            String tmpEmail="";
+            if (StringUtils.hasText(jwt) && jwt.startsWith("Bearer ")) {
+                String tmpToken = jwt.substring(7, jwt.length());
+                tmpEmail = untils.getEmailFromJwtToken(tmpToken);
+            }
+
+            Account acc = accountService.findByEmail(tmpEmail);
             acc.setPhone(request.getPhoneNumber());
+            acc.setPhoneVerifired(true);
             accRepo.save(acc);
             return new ResponseEntity<>(HttpStatus.OK);
         }
