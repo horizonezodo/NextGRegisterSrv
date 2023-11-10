@@ -21,4 +21,6 @@ public class DiscountCode {
     private Long id;
     private String code;
     private double discountPercent;
+    private String userId;
+    private String dateExpired;
 }

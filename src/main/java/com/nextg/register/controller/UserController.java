@@ -7,10 +7,7 @@ import com.nextg.register.model.Transaction;
 import com.nextg.register.repo.AccountRepository;
 import com.nextg.register.repo.DiscountCodeRepository;
 import com.nextg.register.repo.TransactionRepository;
-import com.nextg.register.request.CardPaymentRequest;
-import com.nextg.register.request.ChangePasswordRequest;
-import com.nextg.register.request.PaypalRequest;
-import com.nextg.register.request.UpdateAccountInfoRequest;
+import com.nextg.register.request.*;
 import com.nextg.register.response.AccountInfoResponse;
 import com.nextg.register.response.MessageResponse;
 import com.nextg.register.response.UserInfoResponse;
@@ -35,6 +32,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.LocalDate;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -220,9 +218,16 @@ public class UserController {
     }
 
     @GetMapping("/getDiscountPercent")
-    public ResponseEntity<?> getDiscountPercent(@RequestBody String discountCode){
-        DiscountCode discount = discountCodeRepository.findByCode(discountCode);
-        return new ResponseEntity<>(discount.getDiscountPercent(),HttpStatus.OK);
+    public ResponseEntity<?> getDiscountPercent(@RequestBody getDiscountCodeRequest request){
+        DiscountCode discount = discountCodeRepository.findByCode(request.getDiscountCode());
+        LocalDate nowDate = LocalDate.now();
+        String expiredDate = discount.getDateExpired();
+        LocalDate dateExpired = LocalDate.parse(expiredDate);
+        if(dateExpired.isBefore(nowDate)) {
+            double percent = discount.getDiscountPercent();
+            return new ResponseEntity<>(percent,HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
 
 }
