@@ -58,6 +58,8 @@ public class WebSecurityCofig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth ->
                         auth.antMatchers("/auth/**").permitAll()
+                                .antMatchers("/account/pay/success").permitAll()
+                                .antMatchers("/account/pay/cancel").permitAll()
                                 .anyRequest().authenticated()
                 );
         http.authenticationProvider(authProvider());

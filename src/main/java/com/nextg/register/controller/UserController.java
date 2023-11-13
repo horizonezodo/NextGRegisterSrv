@@ -12,6 +12,7 @@ import com.nextg.register.response.AccountInfoResponse;
 import com.nextg.register.response.MessageResponse;
 import com.nextg.register.response.UserInfoResponse;
 import com.nextg.register.service.AccountServiceImpl;
+import com.nextg.register.service.OpenBrowserService;
 import com.nextg.register.service.PayPalCardPayment;
 import com.nextg.register.service.PaymentService;
 import com.paypal.api.payments.Links;
@@ -33,6 +34,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -55,6 +60,9 @@ public class UserController {
     PaypalConfig config;
 
     @Autowired
+    OpenBrowserService browserService;
+
+    @Autowired
     DiscountCodeRepository discountCodeRepository;
 
     @Autowired
@@ -66,13 +74,6 @@ public class UserController {
     @Value("${server.url}")
     private String portUrl;
 
-    @Value("${paypal.client.id}")
-    private String clientId;
-    @Value("${paypal.client.secret}")
-    private String clientSecret;
-
-    @Autowired
-    private APIContext apiContext;
     @Autowired
     PayPalCardPayment payment;
 
@@ -133,7 +134,7 @@ public class UserController {
         try {
             Payment payment = service.createPayment(request.getTotal(), request.getCurrency(), "paypal",
                     "sale", request.getDescription(), portUrl + CANCEL_URL,
-                    portUrl + SUCCESS_URL + "/userId=" + request.getUserId() + "&rankId=" + request.getRankId());
+                    portUrl + SUCCESS_URL+"?userId=" + request.getUserId() + "&rankId=" + request.getRankId() );
             for(Links link:payment.getLinks()) {
                 if(link.getRel().equals("approval_url")) {
                     Transaction tran = new Transaction();
@@ -142,8 +143,12 @@ public class UserController {
                     tran.setTax(request.getTax());
                     tran.setDiscount(request.getDiscount());
                     tran.setPaymentDate(request.getDayPayment());
+                    tran.setCurrency_code(request.getCurrency());
+                    tran.setAccount_id((long) request.getUserId());
                     tranRepo.save(tran);
+                    browserService.OpenWebBrowser(link.getHref());
                     return "redirect:"+link.getHref();
+
                 }
             }
         } catch (PayPalRESTException e) {
@@ -153,39 +158,44 @@ public class UserController {
         return "redirect:/";
     }
 
-    @GetMapping(value = CANCEL_URL)
-    public String cancelPay() {
-        return "cancel";
+    @GetMapping(value = "pay/cancel")
+    public ResponseEntity<?> cancelPay(@RequestParam("token")String token) {
+        LocalDate currentDate = LocalDate.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        Transaction tran = tranRepo.findByPaymentDate(currentDate.format(formatter));
+        tran.setStatus("Failure");
+        tranRepo.save(tran);
+        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
 
-    @GetMapping(value = SUCCESS_URL)
-    public String successPay(@RequestParam("paymentId") String paymentId, @RequestParam("PayerID") String payerId) {
+    @GetMapping(value = "pay/success")
+    public ResponseEntity<?> successPay(@RequestParam("userId") String userId, @RequestParam("rankId")String rankId,@RequestParam("paymentId") String paymentId,@RequestParam("token") String token, @RequestParam("PayerID") String payerId)   {
         try {
             Payment payment = service.executePayment(paymentId, payerId);
+            Account acc = accService.findAccountById(Long.parseLong(userId));
+            acc.setRank_account(Integer.parseInt(rankId));
+            LocalDate currentDate = LocalDate.now();
+            LocalDate futureDate = currentDate.plusMonths(1);
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            String dateString = futureDate.format(formatter);
+            acc.setExpiredRankDate(dateString);
+            accRepo.save(acc);
+
+            Transaction tran = tranRepo.findByPaymentDate(currentDate.format(formatter));
+            tran.setStatus("Success");
+            tranRepo.save(tran);
             System.out.println(payment.toJSON());
             if (payment.getState().equals("approved")) {
-                return "success";
+                return new ResponseEntity<>(HttpStatus.OK);
             }
-        } catch (PayPalRESTException e) {
+        } catch (PayPalRESTException | AccountException e) {
             System.out.println(e.getMessage());
         }
-        return "redirect:/";
+        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/pay-card")
     public ResponseEntity<?> checkout(@RequestBody CardPaymentRequest cardRequest) throws Exception {
-            String paypalApiUrl = "https://api-m.sandbox.paypal.com/v2/checkout/orders";
-            String jsonBody = "{ \"intent\": \"CAPTURE\", \"purchase_units\": [ \"description\": \""+cardRequest.getDescription()+"\", \"amount\": { \"currency_code\": \""+cardRequest.getCurrency()+"\", \"value\": \""+cardRequest.getAmount()+"\" } } ], \"payment_source\": { \"card\": { \"name\": \""+cardRequest.getCardHolderName()+"\", \"number\": \""+cardRequest.getCardNumber()+"\", \"security_code\": \""+cardRequest.getCvc()+"\", \"expiry\": \""+cardRequest.getDayExpired()+"\", \"return_url\": \"" + portUrl + SUCCESS_URL + "\", \"cancel_url\": \"" + portUrl + CANCEL_URL + "\" } } }";
-            String paymentStatus="";
-            HttpClient client = HttpClient.newHttpClient();
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(paypalApiUrl))
-                    .header("Content-Type", "application/json")
-                    .header("PayPal-Request-Id","7b92603e-77ed-4896-8e78-5dea2050476a")
-                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-                    .header("Authorization","Bearer " + service.getAccessToken())
-                    .build();
-            HttpClient httpClient = HttpClient.newHttpClient();
             Transaction tran = new Transaction();
             tran.setDiscount(cardRequest.getDiscount());
             tran.setAmount(cardRequest.getAmount());
@@ -194,6 +204,18 @@ public class UserController {
             tran.setAccount_id((long) cardRequest.getUserId());
             tran.setPaymentType(cardRequest.getPaymentType());
             tran.setTax(cardRequest.getTax());
+            String paypalApiUrl = "https://api-m.sandbox.paypal.com/v2/checkout/orders";
+            String jsonBody = "{ \"intent\": \"CAPTURE\", \"purchase_units\": [ \"description\": \""+cardRequest.getDescription()+"\", \"amount\": { \"currency_code\": \""+cardRequest.getCurrency()+"\", \"value\": \""+cardRequest.getAmount()+"\" } } ], \"payment_source\": { \"card\": { \"name\": \""+cardRequest.getCardHolderName()+"\", \"number\": \""+cardRequest.getCardNumber()+"\", \"security_code\": \""+cardRequest.getCvc()+"\", \"expiry\": \""+cardRequest.getDayExpired()+"\", \"return_url\": \"" + portUrl + SUCCESS_URL + "\", \"cancel_url\": \"" + portUrl + CANCEL_URL + "\" } } }";
+            String paymentStatus="";
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(paypalApiUrl))
+                    .header("Content-Type", "application/json")
+                    .header("PayPal-Request-Id", String.valueOf(tran.getId()))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .header("Authorization","Bearer " + service.getAccessToken())
+                    .build();
+            HttpClient httpClient = HttpClient.newHttpClient();
            try{
             HttpResponse<String> response = httpClient.send(request,HttpResponse.BodyHandlers.ofString());
             String res = response.body();
@@ -223,9 +245,24 @@ public class UserController {
         LocalDate nowDate = LocalDate.now();
         String expiredDate = discount.getDateExpired();
         LocalDate dateExpired = LocalDate.parse(expiredDate);
-        if(dateExpired.isBefore(nowDate)) {
+        if(dateExpired.isAfter(nowDate)) {
             double percent = discount.getDiscountPercent();
             return new ResponseEntity<>(percent,HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
+
+    @PostMapping("/userAccount")
+    public ResponseEntity<?> deleteAccountUseDiscount(@RequestBody getDiscountCodeRequest request){
+        DiscountCode discount = discountCodeRepository.findByCode(request.getDiscountCode());
+        String tmpAccountId =  discount.getUserId();
+        List<String> myList = new ArrayList<String>(Arrays.asList(tmpAccountId.split(",")));
+        if(myList.contains(request.getUserId())){
+            myList.remove(request.getUserId());
+            String afterId = String.join(", ", myList);
+            discount.setUserId(afterId);
+            discountCodeRepository.save(discount);
+            return new ResponseEntity<>(discount.getUserId(),HttpStatus.OK);
         }
         return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
