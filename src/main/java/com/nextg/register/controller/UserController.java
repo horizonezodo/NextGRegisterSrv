@@ -9,15 +9,11 @@ import com.nextg.register.repo.DiscountCodeRepository;
 import com.nextg.register.repo.TransactionRepository;
 import com.nextg.register.request.*;
 import com.nextg.register.response.AccountInfoResponse;
-import com.nextg.register.response.MessageResponse;
-import com.nextg.register.response.UserInfoResponse;
 import com.nextg.register.service.AccountServiceImpl;
-import com.nextg.register.service.OpenBrowserService;
 import com.nextg.register.service.PayPalCardPayment;
 import com.nextg.register.service.PaymentService;
 import com.paypal.api.payments.Links;
 import com.paypal.api.payments.Payment;
-import com.paypal.base.rest.APIContext;
 import com.paypal.base.rest.PayPalRESTException;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +22,7 @@ import org.springframework.http.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.security.auth.login.AccountException;
 import java.net.URI;
@@ -58,9 +54,6 @@ public class UserController {
 
     @Autowired
     PaypalConfig config;
-
-    @Autowired
-    OpenBrowserService browserService;
 
     @Autowired
     DiscountCodeRepository discountCodeRepository;
@@ -128,9 +121,8 @@ public class UserController {
         return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
 
-
     @PostMapping("/pay")
-    public String paymentWithPayPal(@RequestBody PaypalRequest request) {
+    public ResponseEntity<?> paymentWithPayPal(@RequestBody PaypalRequest request) {
         try {
             Payment payment = service.createPayment(request.getTotal(), request.getCurrency(), "paypal",
                     "sale", request.getDescription(), portUrl + CANCEL_URL,
@@ -146,16 +138,17 @@ public class UserController {
                     tran.setCurrency_code(request.getCurrency());
                     tran.setAccount_id((long) request.getUserId());
                     tranRepo.save(tran);
-                    browserService.OpenWebBrowser(link.getHref());
-                    return "redirect:"+link.getHref();
-
+                    //browserService.OpenWebBrowser("https://www.youtube.com/watch?v=vQ72hhW9_jM&ab_channel=CodeJava");
+                    java.net.URI location = ServletUriComponentsBuilder.fromUriString(link.getHref()).build().toUri();
+                    //return "redirect:"+link.getHref();
+                    return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
                 }
             }
         } catch (PayPalRESTException e) {
 
             e.printStackTrace();
         }
-        return "redirect:/";
+        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
 
     @GetMapping(value = "pay/cancel")
