@@ -15,9 +15,6 @@ public class CardPaymentRequest {
     String paymentType;
     double tax;
     double discount;
-    String dayPayment;
     int userId;
     int rankId;
-    String rank_expired_date;
-
 }

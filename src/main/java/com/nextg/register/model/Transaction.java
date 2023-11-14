@@ -21,5 +21,4 @@ public class Transaction {
     private double discount;
     private String currency_code;
     private String status;
-
 }

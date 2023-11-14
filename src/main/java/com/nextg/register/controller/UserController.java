@@ -15,6 +15,7 @@ import com.nextg.register.service.PaymentService;
 import com.paypal.api.payments.Links;
 import com.paypal.api.payments.Payment;
 import com.paypal.base.rest.PayPalRESTException;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +35,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -134,7 +136,7 @@ public class UserController {
                     tran.setAmount(request.getTotal());
                     tran.setTax(request.getTax());
                     tran.setDiscount(request.getDiscount());
-                    tran.setPaymentDate(request.getDayPayment());
+                    tran.setPaymentDate(String.valueOf(LocalDate.now()));
                     tran.setCurrency_code(request.getCurrency());
                     tran.setAccount_id((long) request.getUserId());
                     tranRepo.save(tran);
@@ -192,33 +194,66 @@ public class UserController {
             Transaction tran = new Transaction();
             tran.setDiscount(cardRequest.getDiscount());
             tran.setAmount(cardRequest.getAmount());
-            tran.setPaymentDate(cardRequest.getDayPayment());
+            tran.setPaymentDate(String.valueOf(LocalDate.now()));
             tran.setCurrency_code(cardRequest.getCurrency());
             tran.setAccount_id((long) cardRequest.getUserId());
             tran.setPaymentType(cardRequest.getPaymentType());
             tran.setTax(cardRequest.getTax());
             String paypalApiUrl = "https://api-m.sandbox.paypal.com/v2/checkout/orders";
-            String jsonBody = "{ \"intent\": \"CAPTURE\", \"purchase_units\": [ \"description\": \""+cardRequest.getDescription()+"\", \"amount\": { \"currency_code\": \""+cardRequest.getCurrency()+"\", \"value\": \""+cardRequest.getAmount()+"\" } } ], \"payment_source\": { \"card\": { \"name\": \""+cardRequest.getCardHolderName()+"\", \"number\": \""+cardRequest.getCardNumber()+"\", \"security_code\": \""+cardRequest.getCvc()+"\", \"expiry\": \""+cardRequest.getDayExpired()+"\", \"return_url\": \"" + portUrl + SUCCESS_URL + "\", \"cancel_url\": \"" + portUrl + CANCEL_URL + "\" } } }";
-            String paymentStatus="";
-            HttpClient client = HttpClient.newHttpClient();
-            HttpRequest request = HttpRequest.newBuilder()
+            //String jsonBody = "{ \"intent\": \"CAPTURE\", \"purchase_units\": [ { \"description\": \""+cardRequest.getDescription()+"\", \"amount\": { \"currency_code\": \""+cardRequest.getCurrency()+"\", \"value\": \""+cardRequest.getAmount()+"\" } } ], \"payment_source\": { \"card\": { \"name\": \""+cardRequest.getCardHolderName()+"\", \"number\": \""+cardRequest.getCardNumber()+"\", \"security_code\": \""+cardRequest.getCvc()+"\",\"expiry\": \""+cardRequest.getDayExpired()+"\",\"return_url\": \""+ portUrl + SUCCESS_URL+"\", \"cancel_url\": \""+portUrl + CANCEL_URL+"\"  } } }";
+
+            JSONObject jsonObject = new JSONObject();
+            jsonObject.put("intent","CAPTURE");
+
+            JSONArray purchaseUnitsArray = new JSONArray();
+            JSONObject purchaseUnitsObject = new JSONObject();
+            purchaseUnitsObject.put("description", cardRequest.getDescription());
+
+            JSONObject amountObject = new JSONObject();
+            amountObject.put("value", cardRequest.getAmount());
+            amountObject.put("currency_code", cardRequest.getCurrency());
+
+            purchaseUnitsObject.put("amount", amountObject);
+            purchaseUnitsArray.put(purchaseUnitsObject);
+
+            JSONObject paymentSourceObject = new JSONObject();
+            JSONObject cardObject = new JSONObject();
+            JSONObject expirienceContextObject = new JSONObject();
+
+            cardObject.put("name", cardRequest.getCardHolderName());
+            cardObject.put("number", cardRequest.getCardNumber());
+            cardObject.put("security_code", cardRequest.getCvc());
+            cardObject.put("expiry", cardRequest.getDayExpired());
+
+            expirienceContextObject.put("return_url",portUrl + SUCCESS_URL);
+            expirienceContextObject.put("cancel_url", portUrl + CANCEL_URL);
+
+            cardObject.put("experience_context",expirienceContextObject);
+            paymentSourceObject.put("card",cardObject);
+
+            jsonObject.put("purchase_units",purchaseUnitsArray);
+            jsonObject.put("payment_source",paymentSourceObject);
+
+        HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(paypalApiUrl))
                     .header("Content-Type", "application/json")
-                    .header("PayPal-Request-Id", String.valueOf(tran.getId()))
-                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .header("PayPal-Request-Id", tran.getId() + "")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonObject.toString()))
                     .header("Authorization","Bearer " + service.getAccessToken())
                     .build();
+            System.out.println("request :" + jsonObject);
             HttpClient httpClient = HttpClient.newHttpClient();
            try{
             HttpResponse<String> response = httpClient.send(request,HttpResponse.BodyHandlers.ofString());
             String res = response.body();
-            JSONObject jsonObject = new JSONObject(res);
-            paymentStatus = jsonObject.getString("status");
+            JSONObject jsonObject1 = new JSONObject(res);
+            System.out.println(jsonObject1);
+            String paymentStatus = jsonObject1.getString("status");
             if(paymentStatus.equalsIgnoreCase("COMPLETED"))
             {
                 Account account = accService.findAccountById((long) cardRequest.getUserId());
                 account.setRank_account(cardRequest.getRankId());
-                account.setExpiredRankDate(cardRequest.getRank_expired_date());
+                account.setExpiredRankDate(String.valueOf(LocalDate.now().plusMonths(1)));
                 accRepo.save(account);
                 tran.setStatus("Success");
                 tranRepo.save(tran);
@@ -232,20 +267,22 @@ public class UserController {
         return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
 
-    @GetMapping("/getDiscountPercent")
+    @PostMapping("/getDiscountPercent")
     public ResponseEntity<?> getDiscountPercent(@RequestBody getDiscountCodeRequest request){
         DiscountCode discount = discountCodeRepository.findByCode(request.getDiscountCode());
         LocalDate nowDate = LocalDate.now();
         String expiredDate = discount.getDateExpired();
         LocalDate dateExpired = LocalDate.parse(expiredDate);
-        if(dateExpired.isAfter(nowDate)) {
+        List<String> idList = new ArrayList<>(Arrays.asList(discount.getUserId().split(",")));
+
+        if((dateExpired.isAfter(nowDate)) && (idList.contains(request.getUserId()))) {
             double percent = discount.getDiscountPercent();
             return new ResponseEntity<>(percent,HttpStatus.OK);
         }
         return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
 
-    @PostMapping("/userAccount")
+    @PostMapping("/userDiscount")
     public ResponseEntity<?> deleteAccountUseDiscount(@RequestBody getDiscountCodeRequest request){
         DiscountCode discount = discountCodeRepository.findByCode(request.getDiscountCode());
         String tmpAccountId =  discount.getUserId();
@@ -255,7 +292,7 @@ public class UserController {
             String afterId = String.join(", ", myList);
             discount.setUserId(afterId);
             discountCodeRepository.save(discount);
-            return new ResponseEntity<>(discount.getUserId(),HttpStatus.OK);
+           return new ResponseEntity<>(HttpStatus.OK);
         }
         return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
