@@ -9,8 +9,9 @@ import com.nextg.register.repo.DiscountCodeRepository;
 import com.nextg.register.repo.TransactionRepository;
 import com.nextg.register.request.*;
 import com.nextg.register.response.AccountInfoResponse;
+import com.nextg.register.response.ErrorCode;
 import com.nextg.register.service.AccountServiceImpl;
-import com.nextg.register.service.PayPalCardPayment;
+import com.nextg.register.service.VNPayService;
 import com.nextg.register.service.PaymentService;
 import com.paypal.api.payments.Links;
 import com.paypal.api.payments.Payment;
@@ -26,16 +27,14 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.security.auth.login.AccountException;
+import javax.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -70,7 +69,10 @@ public class UserController {
     private String portUrl;
 
     @Autowired
-    PayPalCardPayment payment;
+    VNPayService payment;
+
+    @Autowired
+    VNPayService vnService;
 
     @GetMapping("/info")
     private ResponseEntity<?> getAccountInfor(@RequestHeader("Authorization")String jwt) throws AccountException {
@@ -85,12 +87,25 @@ public class UserController {
             info.setLastName(acc.getLastName());
             info.setPhoneNumber(acc.getPhone());
             info.setImageUrl(acc.getImageUrl());
-            info.setRankId(acc.getRank_account());
-            info.setExpiredDate(acc.getExpiredRankDate());
+
+            LocalDate nowDate = LocalDate.now();
+            if(acc.getExpiredRankDate() != null) {
+                LocalDate dateExpired = LocalDate.parse(acc.getExpiredRankDate());
+                if (dateExpired.isAfter(nowDate)) {
+                    info.setRankId(acc.getRank_account());
+                    info.setExpiredDate(acc.getExpiredRankDate());
+                } else {
+                    info.setRankId(1);
+                    info.setExpiredDate(null);
+                }
+            }else{
+                info.setRankId(1);
+                info.setExpiredDate(null);
+            }
             info.setBio(acc.getBio());
             return new ResponseEntity<>(info, HttpStatus.OK);
         }
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("812"),HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/changePass")
@@ -103,9 +118,9 @@ public class UserController {
                 accRepo.save(acc);
                 return new ResponseEntity<>(HttpStatus.OK);
             }
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(new ErrorCode("814"),HttpStatus.BAD_REQUEST);
         }
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("813"),HttpStatus.BAD_REQUEST);
     }
 
     @PutMapping("/update-info")
@@ -120,11 +135,12 @@ public class UserController {
             accRepo.save(acc);
             return new ResponseEntity<>(HttpStatus.OK);
         }
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("815"),HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/pay")
     public ResponseEntity<?> paymentWithPayPal(@RequestBody PaypalRequest request) {
+        String errorCode = "";
         try {
             Payment payment = service.createPayment(request.getTotal(), request.getCurrency(), "paypal",
                     "sale", request.getDescription(), portUrl + CANCEL_URL,
@@ -147,10 +163,10 @@ public class UserController {
                 }
             }
         } catch (PayPalRESTException e) {
-
+            errorCode = e.getMessage();
             e.printStackTrace();
         }
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(errorCode,HttpStatus.BAD_REQUEST);
     }
 
     @GetMapping(value = "pay/cancel")
@@ -160,11 +176,12 @@ public class UserController {
         Transaction tran = tranRepo.findByPaymentDate(currentDate.format(formatter));
         tran.setStatus("Failure");
         tranRepo.save(tran);
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("816"),HttpStatus.BAD_REQUEST);
     }
 
     @GetMapping(value = "pay/success")
     public ResponseEntity<?> successPay(@RequestParam("userId") String userId, @RequestParam("rankId")String rankId,@RequestParam("paymentId") String paymentId,@RequestParam("token") String token, @RequestParam("PayerID") String payerId)   {
+        String errorCode="";
         try {
             Payment payment = service.executePayment(paymentId, payerId);
             Account acc = accService.findAccountById(Long.parseLong(userId));
@@ -185,12 +202,14 @@ public class UserController {
             }
         } catch (PayPalRESTException | AccountException e) {
             System.out.println(e.getMessage());
+            errorCode = e.getMessage();
         }
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(errorCode,HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/pay-card")
     public ResponseEntity<?> checkout(@RequestBody CardPaymentRequest cardRequest) throws Exception {
+            String errorCode="";
             Transaction tran = new Transaction();
             tran.setDiscount(cardRequest.getDiscount());
             tran.setAmount(cardRequest.getAmount());
@@ -261,10 +280,11 @@ public class UserController {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            errorCode = e.getMessage();
         }
         tran.setStatus("Failure");
         tranRepo.save(tran);
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(errorCode,HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/getDiscountPercent")
@@ -279,7 +299,7 @@ public class UserController {
             double percent = discount.getDiscountPercent();
             return new ResponseEntity<>(percent,HttpStatus.OK);
         }
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("817"),HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/userDiscount")
@@ -294,7 +314,36 @@ public class UserController {
             discountCodeRepository.save(discount);
            return new ResponseEntity<>(HttpStatus.OK);
         }
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("818"),HttpStatus.BAD_REQUEST);
     }
+
+    @PostMapping("/vnpay")
+    public ResponseEntity<?> submitOrder(@RequestBody VnPayRequest request){
+        String baseUrl = "http://localhost:8989";
+        String vnpayUrl = vnService.createOrder(request.getAmount(), request.getOrderInfo(), baseUrl, request.getBankAccount(), request.getBankCode());
+        System.out.println("VNPAY URL "+vnpayUrl);
+        java.net.URI location = ServletUriComponentsBuilder.fromUriString(vnpayUrl).build().toUri();
+        return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
+    }
+
+    @GetMapping("/vnpay/return")
+    public ResponseEntity<?> VnPayReturn(HttpServletRequest request){
+        int paymentStatus = vnService.orderReturn(request);
+        String orderInfo = request.getParameter("vnp_OrderInfo");
+        String paymentTime = request.getParameter("vnp_PayDate");
+        String transactionId = request.getParameter("vnp_TransactionNo");
+        String totalPrice = request.getParameter("vnp_Amount");
+
+        Map<String, Object> res = new HashMap<>();
+        res.put("orderId", orderInfo);
+        res.put("totalPrice", totalPrice);
+        res.put("paymentTime", paymentTime);
+        res.put("transactionId", transactionId);
+        if(paymentStatus == 1) {
+            return new ResponseEntity<>(res, HttpStatus.OK);
+        }
+        return new ResponseEntity<>(res, HttpStatus.BAD_REQUEST);
+    }
+
 
 }

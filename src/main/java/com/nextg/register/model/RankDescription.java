@@ -19,7 +19,8 @@ public class RankDescription {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String rankId;
     private String description;
+    private String title;
+    private boolean status;
 
 }

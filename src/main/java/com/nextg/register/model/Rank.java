@@ -21,4 +21,5 @@ public class Rank {
     private Long id;
     private String rankName;
     private String rankTotal;
+    private String rankDesId;
 }

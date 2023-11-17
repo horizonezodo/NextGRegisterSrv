@@ -85,17 +85,17 @@ public class AuthController {
                     new UserInfoResponse(
                             accDetails.getId(), accDetails.getUsername(),
                             accDetails.getEmail(), accDetails.getPhone()
-                            , roles, jwt,refreshToken.getToken()
+                            , roles, jwt,refreshToken.getToken(), accDetails.getImageUrl()
                     ));
         }
-        return new ResponseEntity<>(new MessageResponse("Your account has been locked"), HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("801"), HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUserUsingEmail(@RequestBody RegisterRequest request){
         String tokenSigunp = request.getTokenSignup();
         if((!untils.validateEmail(request.getEmail(), tokenSigunp)) && (untils.validateJwtToken(tokenSigunp))){
-            return new ResponseEntity<>(new MessageResponse("Error: Email has not valid"),HttpStatus.NO_CONTENT);
+            return new ResponseEntity<>(new ErrorCode("803"),HttpStatus.NO_CONTENT);
         }
 
         Account createAccount = new Account(request.getUsername(), request.getEmail(),
@@ -106,29 +106,29 @@ public class AuthController {
 
         if(strRole == null){
             Role userRole = roleRepo.findByName(ERole.ROLE_USER)
-                    .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                    .orElseThrow(()-> new RuntimeException("811"));
             roles.add(userRole);
         }else{
             strRole.forEach(role ->{
                 switch (role){
                     case "admin":
                         Role admin = roleRepo.findByName(ERole.ROLE_ADMIN)
-                                .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                                .orElseThrow(()-> new RuntimeException("811"));
                         roles.add(admin);
                         break;
                     case "manager":
                         Role manager = roleRepo.findByName(ERole.ROLE_MANAGER)
-                                .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                                .orElseThrow(()-> new RuntimeException("811"));
                         roles.add(manager);
                         break;
                     case "mod":
                         Role mod = roleRepo.findByName(ERole.ROLE_MODERATOR)
-                                .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                                .orElseThrow(()-> new RuntimeException("811"));
                         roles.add(mod);
                         break;
                     default:
                         Role userRole = roleRepo.findByName(ERole.ROLE_USER)
-                                .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                                .orElseThrow(()-> new RuntimeException("811"));
                         roles.add(userRole);
                         break;
                 }
@@ -137,6 +137,7 @@ public class AuthController {
         createAccount.setRoles(roles);
         createAccount.setPhoneVerifired(false);
         createAccount.setEmailVerifired(true);
+        createAccount.setRank_account(1);
         accRepo.save(createAccount);
 
         RegisterReponse res = new RegisterReponse();
@@ -163,7 +164,7 @@ public class AuthController {
             VerifyResponse res = new VerifyResponse(req.getEmail(), req.getToken());
             return new ResponseEntity<>(res,HttpStatus.OK);
         }
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("804"),HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/send-otp")
@@ -184,7 +185,7 @@ public class AuthController {
             res.setToken(jwt);
             return new ResponseEntity<>(res,HttpStatus.OK);
         }
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("806"),HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/send-otp-login")
@@ -209,12 +210,12 @@ public class AuthController {
                         new UserInfoResponse(
                                 acc.getId(), acc.getUsername(),
                                 acc.getEmail(), acc.getPhone()
-                                ,strRole, jwt,refreshToken.getToken()
+                                ,strRole, jwt,refreshToken.getToken(),acc.getImageUrl()
                         ));
             }
-            return new ResponseEntity<>(new MessageResponse("Otp is not valid"), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(new ErrorCode("806"), HttpStatus.BAD_REQUEST);
         }
-        return new ResponseEntity<>(new MessageResponse("Your account is locked"), HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("801"), HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/registerByPhone")
@@ -223,7 +224,7 @@ public class AuthController {
 //        req.setPhoneNumber("+84" + request.getPhone());
 //        req.setOtpNumber(req.getOtpNumber());
         if(untils.validatePhone(request.getPhone(), request.getToken())){
-            return new ResponseEntity<>(new MessageResponse("Error: Phone has not valid"),HttpStatus.NO_CONTENT);
+            return new ResponseEntity<>(new ErrorCode("805"),HttpStatus.NO_CONTENT);
         }
 
         Account createAccount = new Account(request.getUsername(), request.getEmail(),
@@ -234,29 +235,29 @@ public class AuthController {
 
         if(strRole == null){
             Role userRole = roleRepo.findByName(ERole.ROLE_USER)
-                    .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                    .orElseThrow(()-> new RuntimeException("811"));
             roles.add(userRole);
         }else{
             strRole.forEach(role ->{
                 switch (role){
                     case "admin":
                         Role admin = roleRepo.findByName(ERole.ROLE_ADMIN)
-                                .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                                .orElseThrow(()-> new RuntimeException("811"));
                         roles.add(admin);
                         break;
                     case "manager":
                         Role manager = roleRepo.findByName(ERole.ROLE_MANAGER)
-                                .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                                .orElseThrow(()-> new RuntimeException("811"));
                         roles.add(manager);
                         break;
                     case "mod":
                         Role mod = roleRepo.findByName(ERole.ROLE_MODERATOR)
-                                .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                                .orElseThrow(()-> new RuntimeException("811"));
                         roles.add(mod);
                         break;
                     default:
                         Role userRole = roleRepo.findByName(ERole.ROLE_USER)
-                                .orElseThrow(()-> new RuntimeException("Error: Role is not found"));
+                                .orElseThrow(()-> new RuntimeException("811"));
                         roles.add(userRole);
                         break;
                 }
@@ -265,6 +266,7 @@ public class AuthController {
         createAccount.setRoles(roles);
         createAccount.setPhoneVerifired(true);
         createAccount.setEmailVerifired(false);
+        createAccount.setRank_account(1);
         accRepo.save(createAccount);
 
         RegisterByPhoneResponse res = new RegisterByPhoneResponse();
@@ -286,7 +288,7 @@ public class AuthController {
             res.setNewPass(req.getNewPassword());
             return new ResponseEntity<>(res, HttpStatus.OK);
         }
-        return new ResponseEntity<>(new MessageResponse("Your email is not valid"), HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("802"), HttpStatus.BAD_REQUEST);
     }
 
     @PutMapping("/changePassword-using-phone")
@@ -301,7 +303,7 @@ public class AuthController {
             res.setNewPass(req.getNewPassword());
             return new ResponseEntity<>(res, HttpStatus.OK);
         }
-        return new ResponseEntity<>(new MessageResponse("Your email is not valid"), HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("802"), HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/verifyEmailChangePass")
@@ -327,7 +329,7 @@ public class AuthController {
             res.setToken(jwt);
             return new ResponseEntity<>(res,HttpStatus.OK);
         }
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("806"),HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/refreshtoken")
@@ -346,7 +348,7 @@ public class AuthController {
                     return ResponseEntity.ok(new RefreshTokenResponse(token, requestRefreshToken));
                 })
                 .orElseThrow(() -> new TokenRefreshException(requestRefreshToken,
-                        "Refresh token is not in database!"));
+                        "810"));
     }
 
     @PostMapping("/signout")
@@ -361,7 +363,7 @@ public class AuthController {
     @PostMapping("/emailVerify")
     public ResponseEntity<?> getEmailVerify(@RequestBody EmailVerifyRequest request, @RequestHeader("Authorization")String token) throws MessagingException {
         if(accRepo.existsByEmail(request.getEmail())){
-            return new ResponseEntity<>(new MessageResponse("Your email has been registered"),HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(new ErrorCode("804"),HttpStatus.BAD_REQUEST);
         }
         String oldPhone="";
         if (StringUtils.hasText(token) && token.startsWith("Bearer ")) {
@@ -384,7 +386,7 @@ public class AuthController {
                 accRepo.save(acc);
                 return new ResponseEntity<>(HttpStatus.OK);
             }
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("805"),HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/validate-otp-success")
@@ -402,6 +404,6 @@ public class AuthController {
             accRepo.save(acc);
             return new ResponseEntity<>(HttpStatus.OK);
         }
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("806"),HttpStatus.BAD_REQUEST);
     }
 }

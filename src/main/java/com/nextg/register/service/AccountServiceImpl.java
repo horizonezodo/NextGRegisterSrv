@@ -43,7 +43,7 @@ public class AccountServiceImpl implements AccountService{
         if(acc.isPresent()){
             return acc.get();
         }
-        throw new AccountException("Account not found with id " + id);
+        throw new AccountException("820");
     }
 
     @Override
@@ -60,6 +60,6 @@ public class AccountServiceImpl implements AccountService{
             return acc.get();
 
         }
-        throw new AccountException("Account not found ");
+        throw new AccountException("819");
     }
 }

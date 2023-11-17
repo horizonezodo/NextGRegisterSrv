@@ -95,6 +95,11 @@
 			<artifactId>android-json</artifactId>
 			<version>0.0.20131108.vaadin1</version>
 		</dependency>
+		<dependency>
+			<groupId>com.alipay.sdk</groupId>
+			<artifactId>alipay-sdk-java</artifactId>
+			<version>4.35.79.ALL</version>
+		</dependency>
 	</dependencies>
 
 	<build>

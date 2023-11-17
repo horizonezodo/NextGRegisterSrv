@@ -18,4 +18,5 @@ public class UserInfoResponse {
     private List<String> roles;
     private String token;
     private String refreshToken;
+    private String imageUrl;
 }

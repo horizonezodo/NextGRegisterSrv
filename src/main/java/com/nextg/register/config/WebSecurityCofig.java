@@ -60,6 +60,7 @@ public class WebSecurityCofig {
                         auth.antMatchers("/auth/**").permitAll()
                                 .antMatchers("/account/pay/success").permitAll()
                                 .antMatchers("/account/pay/cancel").permitAll()
+                                .antMatchers("/account/vnpay/return").permitAll()
                                 .anyRequest().authenticated()
                 );
         http.authenticationProvider(authProvider());

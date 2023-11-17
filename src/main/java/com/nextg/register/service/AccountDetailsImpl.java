@@ -29,6 +29,7 @@ public class AccountDetailsImpl implements UserDetails {
 
     private String phone;
 
+    private String imageUrl;
 
     @JsonIgnore
     private String password;
@@ -45,6 +46,7 @@ public class AccountDetailsImpl implements UserDetails {
                 account.getUsername(),
                 account.getEmail(),
                 account.getPhone(),
+                account.getImageUrl(),
                 account.getPassword(),
                 authorities
         );
