@@ -24,10 +24,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import javax.mail.MessagingException;
@@ -66,7 +63,12 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticationUserUsingEmail(@RequestBody LoginRequest request){
-        Account tmpAccount = accountService.findByEmail(request.getEmail());
+        Account tmpAccount = new Account();
+        try{
+            tmpAccount = accountService.findByEmail(request.getEmail());
+        }catch (RuntimeException e){
+            return new ResponseEntity<>(new ErrorCode("822"), HttpStatus.BAD_REQUEST);
+        }
         if(accountService.checkStatusAccount(tmpAccount.getStatus())) {
             Authentication authentication = manager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
@@ -199,7 +201,12 @@ public class AuthController {
 //        String tmpPhone = "+84"+request.getPhoneNumber();
 //        System.out.println("Phone number " + tmpPhone+ " pasword: " + request.getOtpNumber());
 //        OtpValidationRequest req = new OtpValidationRequest(tmpPhone,request.getOtpNumber());
-        Account acc = accountService.findByPhone(request.getPhoneNumber());
+        Account acc = new Account();
+        try{
+            acc = accountService.findByEmail(request.getPhoneNumber());
+        }catch (RuntimeException e){
+            return new ResponseEntity<>(new ErrorCode("823"), HttpStatus.BAD_REQUEST);
+        }
         if((accountService.checkStatusAccount(acc.getStatus())) && (accRepo.existsByPhone(request.getPhoneNumber()))){
             if(otpService.validateOtp(request)){
                 String jwt = untils.generateTokenFromPhone(request.getPhoneNumber());
@@ -280,7 +287,12 @@ public class AuthController {
     @PutMapping("/changePassword-using-mail")
     public ResponseEntity<?> changePasswordUsingEmail(@RequestBody ChangePasswordByEmail req){
         if(untils.validateEmail(req.getEmail(), req.getTokenChangePass())){
-            Account account = accountService.findByEmail(req.getEmail());
+            Account account = new Account();
+            try{
+                account=accountService.findByEmail(req.getEmail());
+            }catch (RuntimeException e){
+                return new ResponseEntity<>(new ErrorCode("822"), HttpStatus.BAD_REQUEST);
+            }
             account.setPassword(encoder.encode(req.getNewPassword()));
             accRepo.save(account);
             ChangePasswordByEmailResponse res = new ChangePasswordByEmailResponse();

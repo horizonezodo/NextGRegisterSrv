@@ -21,12 +21,12 @@ public class AccountServiceImpl implements AccountService{
 
     @Override
     public Account findByPhone(String phone) {
-        return accRepo.findByPhone(phone).get();
+        return accRepo.findByPhone(phone).orElseThrow(()-> new RuntimeException());
     }
 
     @Override
     public Account findByEmail(String email) {
-         return accRepo.findByEmail(email).get();
+         return accRepo.findByEmail(email).orElseThrow(() -> new RuntimeException());
     }
 
     @Override

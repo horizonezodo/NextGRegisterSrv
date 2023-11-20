@@ -17,4 +17,5 @@ public class CardPaymentRequest {
     double discount;
     int userId;
     int rankId;
+    String discountCode;
 }

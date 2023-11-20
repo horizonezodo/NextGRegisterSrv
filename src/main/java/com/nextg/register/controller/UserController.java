@@ -33,6 +33,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -62,8 +63,8 @@ public class UserController {
     @Autowired
     TransactionRepository tranRepo;
 
-    public static final String SUCCESS_URL = "account/pay/success";
-    public static final String CANCEL_URL = "account/pay/cancel";
+    public static final String SUCCESS_URL = "NextGRegisterSrc/account/pay/success";
+    public static final String CANCEL_URL = "NextGRegisterSrc/account/pay/cancel";
 
     @Value("${server.url}")
     private String portUrl;
@@ -78,7 +79,12 @@ public class UserController {
     private ResponseEntity<?> getAccountInfor(@RequestHeader("Authorization")String jwt) throws AccountException {
         if (StringUtils.hasText(jwt) && jwt.startsWith("Bearer ")) {
             String token=  jwt.substring(7, jwt.length());
-            Account acc = accService.findUserProfileByJwt(token);
+            Account acc = new Account();
+            try{
+                acc =accService.findUserProfileByJwt(token);
+            }catch (AccountException e){
+                return new ResponseEntity<>(new ErrorCode("819"),HttpStatus.BAD_REQUEST);
+            }
             AccountInfoResponse info = new AccountInfoResponse();
             info.setEmail(acc.getEmail());
             info.setEmailVerifired(acc.isEmailVerifired());
@@ -88,10 +94,15 @@ public class UserController {
             info.setPhoneNumber(acc.getPhone());
             info.setImageUrl(acc.getImageUrl());
 
-            LocalDate nowDate = LocalDate.now();
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm");
+            String currentDate = LocalDateTime.now().format(formatter);
+            LocalDateTime nowDate = LocalDateTime.parse(currentDate,formatter);
+
             if(acc.getExpiredRankDate() != null) {
-                LocalDate dateExpired = LocalDate.parse(acc.getExpiredRankDate());
-                if (dateExpired.isAfter(nowDate)) {
+                LocalDateTime dateExpired = LocalDateTime.parse(acc.getExpiredRankDate(),formatter);
+                int comparison = dateExpired.compareTo(nowDate);
+                if (comparison >=0) {
                     info.setRankId(acc.getRank_account());
                     info.setExpiredDate(acc.getExpiredRankDate());
                 } else {
@@ -101,6 +112,9 @@ public class UserController {
             }else{
                 info.setRankId(1);
                 info.setExpiredDate(null);
+                acc.setRank_account(1);
+                acc.setExpiredRankDate(null);
+                accRepo.save(acc);
             }
             info.setBio(acc.getBio());
             return new ResponseEntity<>(info, HttpStatus.OK);
@@ -112,7 +126,12 @@ public class UserController {
     private ResponseEntity<?> changePass(@RequestHeader("Authorization")String jwt, @RequestBody ChangePasswordRequest request) throws AccountException {
         if (StringUtils.hasText(jwt) && jwt.startsWith("Bearer ")) {
             String token=  jwt.substring(7, jwt.length());
-            Account acc = accService.findUserProfileByJwt(token);
+            Account acc = new Account();
+            try{
+                acc =accService.findUserProfileByJwt(token);
+            }catch (AccountException e){
+                return new ResponseEntity<>(new ErrorCode("819"), HttpStatus.BAD_REQUEST);
+            }
             if(encoder.matches(request.getOldPass(), acc.getPassword())) {
                 acc.setPassword(encoder.encode(request.getNewPass()));
                 accRepo.save(acc);
@@ -127,7 +146,12 @@ public class UserController {
     private ResponseEntity<?> updateAccountInformation(@RequestHeader("Authorization")String jwt,@RequestBody UpdateAccountInfoRequest request) throws AccountException {
         if (StringUtils.hasText(jwt) && jwt.startsWith("Bearer ")) {
             String token=  jwt.substring(7, jwt.length());
-            Account acc = accService.findUserProfileByJwt(token);
+            Account acc = new Account();
+            try{
+                acc =accService.findUserProfileByJwt(token);
+            }catch (AccountException e){
+                return new ResponseEntity<>(new ErrorCode("819"),HttpStatus.BAD_REQUEST);
+            }
             acc.setBio(request.getBio());
             acc.setImageUrl(request.getImageUrl());
             acc.setFirstName(request.getFirstName());
@@ -144,7 +168,7 @@ public class UserController {
         try {
             Payment payment = service.createPayment(request.getTotal(), request.getCurrency(), "paypal",
                     "sale", request.getDescription(), portUrl + CANCEL_URL,
-                    portUrl + SUCCESS_URL+"?userId=" + request.getUserId() + "&rankId=" + request.getRankId() );
+                    portUrl + SUCCESS_URL+"?userId=" + request.getUserId() + "&rankId=" + request.getRankId() + "&discountCode=" + request.getDiscountCode()  );
             for(Links link:payment.getLinks()) {
                 if(link.getRel().equals("approval_url")) {
                     Transaction tran = new Transaction();
@@ -152,13 +176,15 @@ public class UserController {
                     tran.setAmount(request.getTotal());
                     tran.setTax(request.getTax());
                     tran.setDiscount(request.getDiscount());
-                    tran.setPaymentDate(String.valueOf(LocalDate.now()));
+                    LocalDateTime currentDate = LocalDateTime.now();
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm");
+                    String date = currentDate.format(formatter);
+                    tran.setPaymentDate(date);
                     tran.setCurrency_code(request.getCurrency());
                     tran.setAccount_id((long) request.getUserId());
                     tranRepo.save(tran);
-                    //browserService.OpenWebBrowser("https://www.youtube.com/watch?v=vQ72hhW9_jM&ab_channel=CodeJava");
+                    System.out.println(link.getHref());
                     java.net.URI location = ServletUriComponentsBuilder.fromUriString(link.getHref()).build().toUri();
-                    //return "redirect:"+link.getHref();
                     return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
                 }
             }
@@ -171,24 +197,25 @@ public class UserController {
 
     @GetMapping(value = "pay/cancel")
     public ResponseEntity<?> cancelPay(@RequestParam("token")String token) {
-        LocalDate currentDate = LocalDate.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        Transaction tran = tranRepo.findByPaymentDate(currentDate.format(formatter));
+        LocalDateTime currentDate = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm");
+        String date = currentDate.format(formatter);
+        Transaction tran = tranRepo.findByPaymentDate(date);
         tran.setStatus("Failure");
         tranRepo.save(tran);
         return new ResponseEntity<>(new ErrorCode("816"),HttpStatus.BAD_REQUEST);
     }
 
     @GetMapping(value = "pay/success")
-    public ResponseEntity<?> successPay(@RequestParam("userId") String userId, @RequestParam("rankId")String rankId,@RequestParam("paymentId") String paymentId,@RequestParam("token") String token, @RequestParam("PayerID") String payerId)   {
+    public ResponseEntity<?> successPay(@RequestParam("userId") String userId, @RequestParam("rankId")String rankId,@RequestParam("discountCode")String discountCode, @RequestParam("paymentId") String paymentId,@RequestParam("token") String token, @RequestParam("PayerID") String payerId)   {
         String errorCode="";
         try {
             Payment payment = service.executePayment(paymentId, payerId);
             Account acc = accService.findAccountById(Long.parseLong(userId));
             acc.setRank_account(Integer.parseInt(rankId));
-            LocalDate currentDate = LocalDate.now();
-            LocalDate futureDate = currentDate.plusMonths(1);
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            LocalDateTime currentDate = LocalDateTime.now();
+            LocalDateTime futureDate = currentDate.plusMonths(1);
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm");
             String dateString = futureDate.format(formatter);
             acc.setExpiredRankDate(dateString);
             accRepo.save(acc);
@@ -196,6 +223,7 @@ public class UserController {
             Transaction tran = tranRepo.findByPaymentDate(currentDate.format(formatter));
             tran.setStatus("Success");
             tranRepo.save(tran);
+            deleteAccountUseDiscount(discountCode, Long.parseLong(userId));
             System.out.println(payment.toJSON());
             if (payment.getState().equals("approved")) {
                 return new ResponseEntity<>(HttpStatus.OK);
@@ -220,7 +248,6 @@ public class UserController {
             tran.setTax(cardRequest.getTax());
             String paypalApiUrl = "https://api-m.sandbox.paypal.com/v2/checkout/orders";
             //String jsonBody = "{ \"intent\": \"CAPTURE\", \"purchase_units\": [ { \"description\": \""+cardRequest.getDescription()+"\", \"amount\": { \"currency_code\": \""+cardRequest.getCurrency()+"\", \"value\": \""+cardRequest.getAmount()+"\" } } ], \"payment_source\": { \"card\": { \"name\": \""+cardRequest.getCardHolderName()+"\", \"number\": \""+cardRequest.getCardNumber()+"\", \"security_code\": \""+cardRequest.getCvc()+"\",\"expiry\": \""+cardRequest.getDayExpired()+"\",\"return_url\": \""+ portUrl + SUCCESS_URL+"\", \"cancel_url\": \""+portUrl + CANCEL_URL+"\"  } } }";
-
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("intent","CAPTURE");
 
@@ -276,6 +303,7 @@ public class UserController {
                 accRepo.save(account);
                 tran.setStatus("Success");
                 tranRepo.save(tran);
+                deleteAccountUseDiscount(cardRequest.getDiscountCode(),account.getId());
                 return new ResponseEntity<>(HttpStatus.OK);
             }
         } catch (Exception e) {
@@ -294,27 +322,24 @@ public class UserController {
         String expiredDate = discount.getDateExpired();
         LocalDate dateExpired = LocalDate.parse(expiredDate);
         List<String> idList = new ArrayList<>(Arrays.asList(discount.getUserId().split(",")));
-
-        if((dateExpired.isAfter(nowDate)) && (idList.contains(request.getUserId()))) {
+        int comparison = dateExpired.compareTo(nowDate);
+        if(comparison >=0 &&  (idList.contains(request.getUserId()))) {
             double percent = discount.getDiscountPercent();
             return new ResponseEntity<>(percent,HttpStatus.OK);
         }
         return new ResponseEntity<>(new ErrorCode("817"),HttpStatus.BAD_REQUEST);
     }
 
-    @PostMapping("/userDiscount")
-    public ResponseEntity<?> deleteAccountUseDiscount(@RequestBody getDiscountCodeRequest request){
-        DiscountCode discount = discountCodeRepository.findByCode(request.getDiscountCode());
+    public void deleteAccountUseDiscount(String discountCode, Long accountId){
+        DiscountCode discount = discountCodeRepository.findByCode(discountCode);
         String tmpAccountId =  discount.getUserId();
         List<String> myList = new ArrayList<String>(Arrays.asList(tmpAccountId.split(",")));
-        if(myList.contains(request.getUserId())){
-            myList.remove(request.getUserId());
-            String afterId = String.join(", ", myList);
+        if(myList.contains(Long.toString(accountId))){
+            myList.remove(Long.toString(accountId));
+            String afterId = String.join(",", myList);
             discount.setUserId(afterId);
             discountCodeRepository.save(discount);
-           return new ResponseEntity<>(HttpStatus.OK);
         }
-        return new ResponseEntity<>(new ErrorCode("818"),HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/vnpay")

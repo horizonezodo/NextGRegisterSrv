@@ -13,6 +13,6 @@ public class PaypalRequest {
     int userId;
     int rankId;
     String dayExpired;
-
+    String discountCode;
 
 }
