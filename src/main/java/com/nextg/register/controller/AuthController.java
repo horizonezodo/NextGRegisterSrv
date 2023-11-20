@@ -59,8 +59,6 @@ public class AuthController {
     @Autowired
     private RefreshTokenServiceImpl refreshService;
 
-
-
     @PostMapping("/login")
     public ResponseEntity<?> authenticationUserUsingEmail(@RequestBody LoginRequest request){
         Account tmpAccount = new Account();

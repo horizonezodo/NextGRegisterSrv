@@ -30,6 +30,7 @@ public class AdminRankController {
     public ResponseEntity<?> getAllRank(){
         return new ResponseEntity<>(rankRepo.findAll(), HttpStatus.OK);
     }
+
     @GetMapping("/all-rank-des")
     public ResponseEntity<?> getAllRankDescriptions(){
         return new ResponseEntity<>(rankDesRepo.findAll(), HttpStatus.OK);

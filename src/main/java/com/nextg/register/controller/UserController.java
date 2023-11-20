@@ -64,6 +64,7 @@ public class UserController {
     TransactionRepository tranRepo;
 
     public static final String SUCCESS_URL = "NextGRegisterSrc/account/pay/success";
+
     public static final String CANCEL_URL = "NextGRegisterSrc/account/pay/cancel";
 
     @Value("${server.url}")
@@ -102,7 +103,7 @@ public class UserController {
             if(acc.getExpiredRankDate() != null) {
                 LocalDateTime dateExpired = LocalDateTime.parse(acc.getExpiredRankDate(),formatter);
                 int comparison = dateExpired.compareTo(nowDate);
-                if (comparison >=0) {
+                if (comparison >= 0) {
                     info.setRankId(acc.getRank_account());
                     info.setExpiredDate(acc.getExpiredRankDate());
                 } else {
@@ -165,24 +166,24 @@ public class UserController {
     @PostMapping("/pay")
     public ResponseEntity<?> paymentWithPayPal(@RequestBody PaypalRequest request) {
         String errorCode = "";
+        LocalDateTime currentDate = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm");
+        String date = currentDate.format(formatter);
+        Transaction tran = new Transaction();
+        tran.setPaymentType("paypal");
+        tran.setAmount(request.getTotal());
+        tran.setTax(request.getTax());
+        tran.setDiscount(request.getDiscount());
+        tran.setCurrency_code(request.getCurrency());
+        tran.setAccountId((long) request.getUserId());
+        tran.setDatePayment(LocalDateTime.parse(date, formatter));
+        tranRepo.save(tran);
         try {
             Payment payment = service.createPayment(request.getTotal(), request.getCurrency(), "paypal",
-                    "sale", request.getDescription(), portUrl + CANCEL_URL,
-                    portUrl + SUCCESS_URL+"?userId=" + request.getUserId() + "&rankId=" + request.getRankId() + "&discountCode=" + request.getDiscountCode()  );
+                    "sale", request.getDescription(), portUrl + CANCEL_URL +"?userId=" + request.getUserId() + "&transactionId=" + tran.getId(),
+                    portUrl + SUCCESS_URL+"?userId=" + request.getUserId() + "&rankId=" + request.getRankId() + "&discountCode=" + request.getDiscountCode() + "&transactionId=" + tran.getId()  );
             for(Links link:payment.getLinks()) {
                 if(link.getRel().equals("approval_url")) {
-                    Transaction tran = new Transaction();
-                    tran.setPaymentType("paypal");
-                    tran.setAmount(request.getTotal());
-                    tran.setTax(request.getTax());
-                    tran.setDiscount(request.getDiscount());
-                    LocalDateTime currentDate = LocalDateTime.now();
-                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm");
-                    String date = currentDate.format(formatter);
-                    tran.setPaymentDate(date);
-                    tran.setCurrency_code(request.getCurrency());
-                    tran.setAccount_id((long) request.getUserId());
-                    tranRepo.save(tran);
                     System.out.println(link.getHref());
                     java.net.URI location = ServletUriComponentsBuilder.fromUriString(link.getHref()).build().toUri();
                     return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
@@ -196,18 +197,15 @@ public class UserController {
     }
 
     @GetMapping(value = "pay/cancel")
-    public ResponseEntity<?> cancelPay(@RequestParam("token")String token) {
-        LocalDateTime currentDate = LocalDateTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm");
-        String date = currentDate.format(formatter);
-        Transaction tran = tranRepo.findByPaymentDate(date);
-        tran.setStatus("Failure");
+    public ResponseEntity<?> cancelPay(@RequestParam("token")String token,@RequestParam("userId")int userId, @RequestParam("transactionId") String id) {
+        Transaction tran = tranRepo.findByIdAndAccountIdAndStatus(Long.parseLong(id), (long) userId,null);
+        tran.setStatus("Cancelled");
         tranRepo.save(tran);
         return new ResponseEntity<>(new ErrorCode("816"),HttpStatus.BAD_REQUEST);
     }
 
     @GetMapping(value = "pay/success")
-    public ResponseEntity<?> successPay(@RequestParam("userId") String userId, @RequestParam("rankId")String rankId,@RequestParam("discountCode")String discountCode, @RequestParam("paymentId") String paymentId,@RequestParam("token") String token, @RequestParam("PayerID") String payerId)   {
+    public ResponseEntity<?> successPay(@RequestParam("userId") String userId, @RequestParam("rankId")String rankId,@RequestParam("discountCode")String discountCode,@RequestParam("transactionId")String id, @RequestParam("paymentId") String paymentId,@RequestParam("token") String token, @RequestParam("PayerID") String payerId)   {
         String errorCode="";
         try {
             Payment payment = service.executePayment(paymentId, payerId);
@@ -219,8 +217,8 @@ public class UserController {
             String dateString = futureDate.format(formatter);
             acc.setExpiredRankDate(dateString);
             accRepo.save(acc);
+            Transaction tran = tranRepo.findByIdAndAccountIdAndStatus(Long.parseLong(id),acc.getId(), null);
 
-            Transaction tran = tranRepo.findByPaymentDate(currentDate.format(formatter));
             tran.setStatus("Success");
             tranRepo.save(tran);
             deleteAccountUseDiscount(discountCode, Long.parseLong(userId));
@@ -230,6 +228,9 @@ public class UserController {
             }
         } catch (PayPalRESTException | AccountException e) {
             System.out.println(e.getMessage());
+            Transaction tran = tranRepo.findByIdAndAccountIdAndStatus(Long.parseLong(id),Long.parseLong(userId), null);
+            tran.setStatus("Cancelled");
+            tranRepo.save(tran);
             errorCode = e.getMessage();
         }
         return new ResponseEntity<>(errorCode,HttpStatus.BAD_REQUEST);
@@ -241,11 +242,16 @@ public class UserController {
             Transaction tran = new Transaction();
             tran.setDiscount(cardRequest.getDiscount());
             tran.setAmount(cardRequest.getAmount());
-            tran.setPaymentDate(String.valueOf(LocalDate.now()));
             tran.setCurrency_code(cardRequest.getCurrency());
-            tran.setAccount_id((long) cardRequest.getUserId());
+            tran.setAccountId((long) cardRequest.getUserId());
             tran.setPaymentType(cardRequest.getPaymentType());
             tran.setTax(cardRequest.getTax());
+            LocalDateTime currentDate = LocalDateTime.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm");
+            String dateString = currentDate.format(formatter);
+            tran.setDatePayment(LocalDateTime.parse(dateString, formatter));
+
+
             String paypalApiUrl = "https://api-m.sandbox.paypal.com/v2/checkout/orders";
             //String jsonBody = "{ \"intent\": \"CAPTURE\", \"purchase_units\": [ { \"description\": \""+cardRequest.getDescription()+"\", \"amount\": { \"currency_code\": \""+cardRequest.getCurrency()+"\", \"value\": \""+cardRequest.getAmount()+"\" } } ], \"payment_source\": { \"card\": { \"name\": \""+cardRequest.getCardHolderName()+"\", \"number\": \""+cardRequest.getCardNumber()+"\", \"security_code\": \""+cardRequest.getCvc()+"\",\"expiry\": \""+cardRequest.getDayExpired()+"\",\"return_url\": \""+ portUrl + SUCCESS_URL+"\", \"cancel_url\": \""+portUrl + CANCEL_URL+"\"  } } }";
             JSONObject jsonObject = new JSONObject();
@@ -317,7 +323,13 @@ public class UserController {
 
     @PostMapping("/getDiscountPercent")
     public ResponseEntity<?> getDiscountPercent(@RequestBody getDiscountCodeRequest request){
-        DiscountCode discount = discountCodeRepository.findByCode(request.getDiscountCode());
+        Optional<DiscountCode> otp = discountCodeRepository.findByCode(request.getDiscountCode());
+        DiscountCode discount = new DiscountCode();
+        if(otp.isPresent()){
+            discount = otp.get();
+        }else{
+            return new ResponseEntity<>(new ErrorCode("824"), HttpStatus.BAD_REQUEST);
+        }
         LocalDate nowDate = LocalDate.now();
         String expiredDate = discount.getDateExpired();
         LocalDate dateExpired = LocalDate.parse(expiredDate);
@@ -331,7 +343,7 @@ public class UserController {
     }
 
     public void deleteAccountUseDiscount(String discountCode, Long accountId){
-        DiscountCode discount = discountCodeRepository.findByCode(discountCode);
+        DiscountCode discount = discountCodeRepository.findByCode(discountCode).get();
         String tmpAccountId =  discount.getUserId();
         List<String> myList = new ArrayList<String>(Arrays.asList(tmpAccountId.split(",")));
         if(myList.contains(Long.toString(accountId))){
