@@ -170,7 +170,7 @@ public class AuthController {
     @PostMapping("/send-otp")
     public ResponseEntity<?> sendOtp(@RequestBody OtpRequest otpRequest) {
         if(accRepo.existsByPhone(otpRequest.getPhoneNumber())){
-            return new ResponseEntity<>( new MessageResponse("Phone number has been taken"), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>( new ErrorCode("805"), HttpStatus.BAD_REQUEST);
         }
         return new ResponseEntity<>(otpService.sendSMS(otpRequest), HttpStatus.OK);
 

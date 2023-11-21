@@ -33,6 +33,6 @@ public class AdminRankController {
 
     @GetMapping("/all-rank-des")
     public ResponseEntity<?> getAllRankDescriptions(){
-        return new ResponseEntity<>(rankDesRepo.findAll(), HttpStatus.OK);
+        return new ResponseEntity<>(rankDesRepo.findAllByStatus(true), HttpStatus.OK);
     }
 }
