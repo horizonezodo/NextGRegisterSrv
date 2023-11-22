@@ -354,33 +354,33 @@ public class UserController {
         }
     }
 
-    @PostMapping("/vnpay")
-    public ResponseEntity<?> submitOrder(@RequestBody VnPayRequest request){
-        String baseUrl = "http://localhost:8989";
-        String vnpayUrl = vnService.createOrder(request.getAmount(), request.getOrderInfo(), baseUrl, request.getBankAccount(), request.getBankCode());
-        System.out.println("VNPAY URL "+vnpayUrl);
-        java.net.URI location = ServletUriComponentsBuilder.fromUriString(vnpayUrl).build().toUri();
-        return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
-    }
-
-    @GetMapping("/vnpay/return")
-    public ResponseEntity<?> VnPayReturn(HttpServletRequest request){
-        int paymentStatus = vnService.orderReturn(request);
-        String orderInfo = request.getParameter("vnp_OrderInfo");
-        String paymentTime = request.getParameter("vnp_PayDate");
-        String transactionId = request.getParameter("vnp_TransactionNo");
-        String totalPrice = request.getParameter("vnp_Amount");
-
-        Map<String, Object> res = new HashMap<>();
-        res.put("orderId", orderInfo);
-        res.put("totalPrice", totalPrice);
-        res.put("paymentTime", paymentTime);
-        res.put("transactionId", transactionId);
-        if(paymentStatus == 1) {
-            return new ResponseEntity<>(res, HttpStatus.OK);
-        }
-        return new ResponseEntity<>(res, HttpStatus.BAD_REQUEST);
-    }
+//    @PostMapping("/vnpay")
+//    public ResponseEntity<?> submitOrder(@RequestBody VnPayRequest request){
+//        String baseUrl = "http://localhost:8989";
+//        String vnpayUrl = vnService.createOrder(request.getAmount(), request.getOrderInfo(), baseUrl, request.getBankAccount(), request.getBankCode());
+//        System.out.println("VNPAY URL "+vnpayUrl);
+//        java.net.URI location = ServletUriComponentsBuilder.fromUriString(vnpayUrl).build().toUri();
+//        return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
+//    }
+//
+//    @GetMapping("/vnpay/return")
+//    public ResponseEntity<?> VnPayReturn(HttpServletRequest request){
+//        int paymentStatus = vnService.orderReturn(request);
+//        String orderInfo = request.getParameter("vnp_OrderInfo");
+//        String paymentTime = request.getParameter("vnp_PayDate");
+//        String transactionId = request.getParameter("vnp_TransactionNo");
+//        String totalPrice = request.getParameter("vnp_Amount");
+//
+//        Map<String, Object> res = new HashMap<>();
+//        res.put("orderId", orderInfo);
+//        res.put("totalPrice", totalPrice);
+//        res.put("paymentTime", paymentTime);
+//        res.put("transactionId", transactionId);
+//        if(paymentStatus == 1) {
+//            return new ResponseEntity<>(res, HttpStatus.OK);
+//        }
+//        return new ResponseEntity<>(res, HttpStatus.BAD_REQUEST);
+//    }
 
 
 }

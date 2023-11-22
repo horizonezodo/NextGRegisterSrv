@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface RankDescriptionRepository extends JpaRepository<RankDescription,Long> {
     List<RankDescription> findAllByStatus(boolean status);
+
 }

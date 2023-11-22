@@ -26,8 +26,13 @@ target/
 /nbdist/
 /.nb-gradle/
 build/
+### Lock Log
+logs/
+### End Lock
 !**/src/main/**/build/
 !**/src/test/**/build/
 
 ### VS Code ###
 .vscode/
+
+
