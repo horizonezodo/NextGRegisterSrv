@@ -35,7 +35,7 @@ public class OtpService {
             PhoneNumber to = new PhoneNumber(otpRequest.getPhoneNumber());//to
             PhoneNumber from = new PhoneNumber(twilioConfig.getTrialNumber()); // from
             String otp = generateOTP();
-            String otpMessage = "Dear Customer , Your OTP is  " + otp + " for sending sms through Spring boot application. Thank You.";
+            String otpMessage = "Dear Customer , Your OTP is  " + otp + " for Login. Your otp code has an otp usage time of 1 minute. Do not reveal the otp code to anyone other than yourself. Thank You.";
             Message message = Message
                     .creator(to, from,
                             otpMessage)

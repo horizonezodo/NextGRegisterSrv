@@ -190,7 +190,11 @@ public class AuthController {
 
     @PostMapping("/send-otp-login")
     public ResponseEntity<?> sendOtpLogin(@RequestBody OtpRequest otpRequest) {
-        return new ResponseEntity<>(otpService.sendSMS(otpRequest), HttpStatus.OK);
+        if(accRepo.existsByPhone(otpRequest.getPhoneNumber())){
+            return new ResponseEntity<>(otpService.sendSMS(otpRequest), HttpStatus.OK);
+        }
+        return new ResponseEntity<>( new ErrorCode("823"), HttpStatus.BAD_REQUEST);
+
     }
 
     @PostMapping("/loginByPhone")
@@ -201,7 +205,7 @@ public class AuthController {
 //        OtpValidationRequest req = new OtpValidationRequest(tmpPhone,request.getOtpNumber());
         Account acc = new Account();
         try{
-            acc = accountService.findByEmail(request.getPhoneNumber());
+            acc = accountService.findByPhone(request.getPhoneNumber());
         }catch (RuntimeException e){
             return new ResponseEntity<>(new ErrorCode("823"), HttpStatus.BAD_REQUEST);
         }
@@ -416,4 +420,6 @@ public class AuthController {
         }
         return new ResponseEntity<>(new ErrorCode("806"),HttpStatus.BAD_REQUEST);
     }
+
+
 }
