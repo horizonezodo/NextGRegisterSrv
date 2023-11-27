@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.util.JSONPObject;
 import com.google.gson.JsonObject;
 import com.paypal.api.payments.*;
 import com.paypal.base.rest.APIContext;
+import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,7 @@ import java.util.*;
 
 
 @Service
+@Slf4j
 public class PaymentService {
 
     @Autowired
@@ -66,7 +68,7 @@ public class PaymentService {
         redirectUrls.setCancelUrl(cancelUrl);
         redirectUrls.setReturnUrl(successUrl);
         payment.setRedirectUrls(redirectUrls);
-
+        log.info("create order paypal success : " );
         return payment.create(apiContext);
     }
 
@@ -75,6 +77,7 @@ public class PaymentService {
         payment.setId(paymentId);
         PaymentExecution paymentExecute = new PaymentExecution();
         paymentExecute.setPayerId(payerId);
+        log.info("payment order paypal success : " );
         return payment.execute(apiContext, paymentExecute);
     }
 
@@ -110,8 +113,10 @@ public class PaymentService {
 
         try{
             Payment createdPayment = payment.create(apiContext);
+            log.info("create order card success : " );
             return createdPayment;
         } catch (PayPalRESTException e) {
+            log.error("create order paypal error : " + e.getMessage() );
             e.printStackTrace();
             return null;
         }
@@ -138,8 +143,10 @@ public class PaymentService {
             System.out.println("Phản hồi từ máy chủ: " + jsonObject);
             System.out.println("Access token: " + accessToken);
         } catch (Exception e) {
+            log.error("create paypal access token failure : " + e.getMessage() );
         e.printStackTrace();
         }
+        log.info("create paypal access token success : " );
         return accessToken;
     }
 

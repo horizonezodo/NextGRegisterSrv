@@ -16,6 +16,7 @@ import com.nextg.register.service.PaymentService;
 import com.paypal.api.payments.Links;
 import com.paypal.api.payments.Payment;
 import com.paypal.base.rest.PayPalRESTException;
+import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,7 @@ import java.util.*;
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/account")
+@Slf4j
 public class UserController {
 
     @Autowired
@@ -84,6 +86,7 @@ public class UserController {
             try{
                 acc =accService.findUserProfileByJwt(token);
             }catch (AccountException e){
+                log.error("Get info failure : " + acc.getFirstName());
                 return new ResponseEntity<>(new ErrorCode("819"),HttpStatus.BAD_REQUEST);
             }
             AccountInfoResponse info = new AccountInfoResponse();
@@ -118,8 +121,10 @@ public class UserController {
                 accRepo.save(acc);
             }
             info.setBio(acc.getBio());
+            log.info("Get info Success : " + acc.getFirstName());
             return new ResponseEntity<>(info, HttpStatus.OK);
         }
+        log.error("Can not find account info with token : " + jwt);
         return new ResponseEntity<>(new ErrorCode("812"),HttpStatus.BAD_REQUEST);
     }
 
@@ -131,15 +136,19 @@ public class UserController {
             try{
                 acc =accService.findUserProfileByJwt(token);
             }catch (AccountException e){
+                log.error("Get account failure : " + jwt);
                 return new ResponseEntity<>(new ErrorCode("819"), HttpStatus.BAD_REQUEST);
             }
             if(encoder.matches(request.getOldPass(), acc.getPassword())) {
                 acc.setPassword(encoder.encode(request.getNewPass()));
                 accRepo.save(acc);
+                log.info("Change pass Success : " + acc.getFirstName());
                 return new ResponseEntity<>(HttpStatus.OK);
             }
+            log.error("Old pass is not correctly: " + request.getOldPass());
             return new ResponseEntity<>(new ErrorCode("814"),HttpStatus.BAD_REQUEST);
         }
+        log.error("Cannot change pass : ");
         return new ResponseEntity<>(new ErrorCode("813"),HttpStatus.BAD_REQUEST);
     }
 
@@ -158,8 +167,10 @@ public class UserController {
             acc.setFirstName(request.getFirstName());
             acc.setLastName(request.getLastName());
             accRepo.save(acc);
+            log.info("Update info Success : " + acc.getFirstName());
             return new ResponseEntity<>(HttpStatus.OK);
         }
+        log.error("Update info Failure : ");
         return new ResponseEntity<>(new ErrorCode("815"),HttpStatus.BAD_REQUEST);
     }
 
@@ -186,13 +197,16 @@ public class UserController {
                 if(link.getRel().equals("approval_url")) {
                     System.out.println(link.getHref());
                     java.net.URI location = ServletUriComponentsBuilder.fromUriString(link.getHref()).build().toUri();
+                    log.info("Pay with paypal Success : " + request.getUserId());
                     return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
                 }
             }
         } catch (PayPalRESTException e) {
+            log.error("Pay with paypal get error : " + e.getMessage());
             errorCode = e.getMessage();
             e.printStackTrace();
         }
+        log.error("Pay with paypal cancelled : ");
         return new ResponseEntity<>(errorCode,HttpStatus.BAD_REQUEST);
     }
 
@@ -201,6 +215,7 @@ public class UserController {
         Transaction tran = tranRepo.findByIdAndAccountIdAndStatus(Long.parseLong(id), (long) userId,null);
         tran.setStatus("Cancelled");
         tranRepo.save(tran);
+        log.info("Pay cancelled  : " + userId);
         return new ResponseEntity<>(new ErrorCode("816"),HttpStatus.BAD_REQUEST);
     }
 
@@ -224,6 +239,7 @@ public class UserController {
             deleteAccountUseDiscount(discountCode, Long.parseLong(userId));
             System.out.println(payment.toJSON());
             if (payment.getState().equals("approved")) {
+                log.info("Payment Success : " + userId);
                 return new ResponseEntity<>(HttpStatus.OK);
             }
         } catch (PayPalRESTException | AccountException e) {
@@ -231,8 +247,10 @@ public class UserController {
             Transaction tran = tranRepo.findByIdAndAccountIdAndStatus(Long.parseLong(id),Long.parseLong(userId), null);
             tran.setStatus("Cancelled");
             tranRepo.save(tran);
+            log.error("Payment get error : " + e.getMessage());
             errorCode = e.getMessage();
         }
+        log.error("Payment get error : ");
         return new ResponseEntity<>(errorCode,HttpStatus.BAD_REQUEST);
     }
 
@@ -310,14 +328,17 @@ public class UserController {
                 tran.setStatus("Success");
                 tranRepo.save(tran);
                 deleteAccountUseDiscount(cardRequest.getDiscountCode(),account.getId());
+                log.info("Payment with card Success : " + cardRequest.getUserId());
                 return new ResponseEntity<>(HttpStatus.OK);
             }
         } catch (Exception e) {
+            log.error("Pay with card has been error : " + e.getMessage());
             e.printStackTrace();
             errorCode = e.getMessage();
         }
         tran.setStatus("Failure");
         tranRepo.save(tran);
+        log.error("Can not pay with card : ");
         return new ResponseEntity<>(errorCode,HttpStatus.BAD_REQUEST);
     }
 
@@ -328,6 +349,7 @@ public class UserController {
         if(otp.isPresent()){
             discount = otp.get();
         }else{
+            log.error("Can not found discount code : " + request.getDiscountCode());
             return new ResponseEntity<>(new ErrorCode("824"), HttpStatus.BAD_REQUEST);
         }
         LocalDate nowDate = LocalDate.now();
@@ -337,8 +359,10 @@ public class UserController {
         int comparison = dateExpired.compareTo(nowDate);
         if(comparison >=0 &&  (idList.contains(request.getUserId()))) {
             double percent = discount.getDiscountPercent();
+            log.info("Get Discount Success : " + request.getUserId());
             return new ResponseEntity<>(percent,HttpStatus.OK);
         }
+        log.error("Get Discount Failure : " + request.getUserId());
         return new ResponseEntity<>(new ErrorCode("817"),HttpStatus.BAD_REQUEST);
     }
 

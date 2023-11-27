@@ -12,7 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 public class UserInfoResponse {
     private Long id;
-    private String username;
+    private String firstName;
     private String email;
     private String phone;
     private List<String> roles;

@@ -23,7 +23,7 @@ public class AccountDetailsImpl implements UserDetails {
 
     private Long id;
 
-    private String username;
+    private String firstName;
 
     private String email;
 
@@ -43,7 +43,7 @@ public class AccountDetailsImpl implements UserDetails {
                         .collect(Collectors.toList());
         return new AccountDetailsImpl(
                 account.getId(),
-                account.getUsername(),
+                account.getFirstName(),
                 account.getEmail(),
                 account.getPhone(),
                 account.getImageUrl(),
@@ -64,7 +64,7 @@ public class AccountDetailsImpl implements UserDetails {
 
     @Override
     public String getUsername() {
-        return username;
+        return firstName;
     }
 
     @Override

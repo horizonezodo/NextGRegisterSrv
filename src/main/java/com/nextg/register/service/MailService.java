@@ -1,5 +1,6 @@
 package com.nextg.register.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
@@ -15,6 +16,7 @@ import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
 
 @Service
+@Slf4j
 public class MailService {
 
     @Value("${spring.mail.username}")
@@ -36,8 +38,9 @@ public class MailService {
         message.setRecipients(MimeMessage.RecipientType.TO, mail);
         message.setSubject("Verification Email");
         String htmlContent = readHtmlEmailTemplate();
-        htmlContent = htmlContent.replace("{{var_href}}", portUrl+"register?email="+mail + "&token="+token);
+        htmlContent = htmlContent.replace("{{var_href}}", portUrl+"users/sign-up?email="+mail + "&token="+token);
         message.setContent(htmlContent,"text/html; charset=utf-8");
+        log.info("send email success : " );
         mailSender.send(message);
     }
 
@@ -46,8 +49,10 @@ public class MailService {
         try {
             ClassPathResource resource = new ClassPathResource("email-template.html");
             byte[] fileData = FileCopyUtils.copyToByteArray(resource.getInputStream());
+            log.info("read template success : " );
             return new String(fileData, StandardCharsets.UTF_8);
         } catch (IOException e) {
+            log.error("read template failure : " );
             e.printStackTrace();
             // Handle the exception appropriately
             return null;
@@ -61,8 +66,9 @@ public class MailService {
         message.setRecipients(MimeMessage.RecipientType.TO, mail);
         message.setSubject("Verification Email");
         String htmlContent = readHtmlEmailTemplate();
-        htmlContent = htmlContent.replace("{{var_href}}", portUrl+"resetPassword?email="+mail + "&token="+token);
+        htmlContent = htmlContent.replace("{{var_href}}", portUrl+"users/forgot-password?email="+mail + "&token="+token);
         message.setContent(htmlContent,"text/html; charset=utf-8");
+        log.info("send email success : " );
         mailSender.send(message);
     }
 
@@ -73,8 +79,9 @@ public class MailService {
         message.setRecipients(MimeMessage.RecipientType.TO, mail);
         message.setSubject("Verification Email");
         String htmlContent = readHtmlEmailTemplate();
-        htmlContent = htmlContent.replace("{{var_href}}", backendUrl+"auth/verifiedSuccess?email="+mail + "&token="+token + "&phone="+phone);
+        htmlContent = htmlContent.replace("{{var_href}}", backendUrl+"NextGRegisterSrc/auth/verifiedSuccess?email="+mail + "&token="+token + "&phone="+phone);
         message.setContent(htmlContent,"text/html; charset=utf-8");
+        log.info("send email success : " );
         mailSender.send(message);
     }
 

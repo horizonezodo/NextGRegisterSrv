@@ -4,6 +4,7 @@ import com.nextg.register.exception.TokenRefreshException;
 import com.nextg.register.model.RefreshToken;
 import com.nextg.register.repo.AccountRepository;
 import com.nextg.register.repo.RefreshTokenRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class RefreshTokenServiceImpl {
 
 
@@ -38,6 +40,7 @@ public class RefreshTokenServiceImpl {
         refreshToken.setToken(UUID.randomUUID().toString());
 
         refreshToken = repo.save(refreshToken);
+        log.info("create refresh token success : " );
         return refreshToken;
     }
 
@@ -52,6 +55,7 @@ public class RefreshTokenServiceImpl {
 
     @Transactional
     public int deleteByUserId(Long userId) {
+        log.info("delete refresh token logout success : " );
         return repo.deleteByAccount(accRepo.findById(userId).get());
     }
 }

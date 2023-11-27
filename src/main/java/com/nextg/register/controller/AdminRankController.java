@@ -6,6 +6,7 @@ import com.nextg.register.model.RankDescription;
 import com.nextg.register.repo.RankDescriptionRepository;
 import com.nextg.register.repo.RankRepository;
 import com.nextg.register.response.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ import java.util.*;
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/admin-rank")
+@Slf4j
 public class AdminRankController {
 
     @Autowired
@@ -26,31 +28,37 @@ public class AdminRankController {
 
     @GetMapping("/all-rank")
     public ResponseEntity<?> getAllRank(){
+        log.info("Get all rank Success : " );
         return new ResponseEntity<>(rankRepo.findAll(), HttpStatus.OK);
     }
 
     @GetMapping("/all-rank-des")
     public ResponseEntity<?> getAllRankDescriptions(){
+        log.info("Get all rank description Success : " );
         return new ResponseEntity<>(rankDesRepo.findAllByStatus(true), HttpStatus.OK);
     }
 
     @GetMapping("/rank")
     public ResponseEntity<?> getRank(@RequestParam("id")Long id){
+        log.info("Get rank Success : " + id);
         return new ResponseEntity<>(rankRepo.findById(id), HttpStatus.OK);
     }
 
     @GetMapping("/rank-des")
     public ResponseEntity<?> getRankDescriptions(@RequestParam("id")Long id){
+        log.info("Get rank description Success : " + id);
         return new ResponseEntity<>(rankDesRepo.findById(id), HttpStatus.OK);
     }
 
     @PostMapping("/add-rank")
     public ResponseEntity<?> addRank(@RequestBody Rank reqeust){
+        log.info("add rank Success : " );
         return new ResponseEntity<>(rankRepo.save(reqeust), HttpStatus.OK);
     }
 
     @PostMapping("/add-rank-des")
     public ResponseEntity<?> addRankDescriptions(@RequestBody RankDescription request){
+        log.info("add rank description Success : " );
         return new ResponseEntity<>(rankDesRepo.save(request), HttpStatus.OK);
     }
 
@@ -62,8 +70,10 @@ public class AdminRankController {
             tmpRank.setRankTotal(request.getRankTotal());
             tmpRank.setRankDesId(request.getRankDesId());
             tmpRank.setRankName(request.getRankName());
+            log.info("update rank Success : " + id );
             return new ResponseEntity<>(rankRepo.save(tmpRank), HttpStatus.OK);
         }
+        log.info("update rank failure : " + id);
         return new ResponseEntity<>(new ErrorCode("825"), HttpStatus.BAD_REQUEST);
     }
 
@@ -75,8 +85,10 @@ public class AdminRankController {
             tmpRankDes.setDescription(request.getDescription());
             tmpRankDes.setStatus(request.isStatus());
             tmpRankDes.setTitle(request.getTitle());
+            log.info("update rank description Success : " + id );
             return new ResponseEntity<>(rankDesRepo.save(tmpRankDes), HttpStatus.OK);
         }
+        log.info("update rank description failure : " +id);
         return new ResponseEntity<>(new ErrorCode("826"), HttpStatus.BAD_REQUEST);
     }
 
@@ -86,8 +98,10 @@ public class AdminRankController {
         if(otp.isPresent()){
             Rank tmpRank = otp.get();
             rankRepo.delete(tmpRank);
+            log.info("delete rank Success : " + id);
             return new ResponseEntity<>(HttpStatus.OK);
         }
+        log.info("delete rank  failure : " + id);
         return new ResponseEntity<>(new ErrorCode("827"),HttpStatus.BAD_REQUEST);
     }
 
@@ -97,8 +111,10 @@ public class AdminRankController {
         if(otp.isPresent()){
             RankDescription tmpRankDes = otp.get();
             rankDesRepo.delete(tmpRankDes);
+            log.info("delete rank description Success : " + id );
             return new ResponseEntity<>(HttpStatus.OK);
         }
+        log.info("delete rank description failure : " + id );
         return new ResponseEntity<>(new ErrorCode("828"),HttpStatus.BAD_REQUEST);
     }
 
@@ -142,6 +158,7 @@ public class AdminRankController {
             obj.add(json);
         }
         System.out.println(obj);
+        log.info("Get all rank with description Success : " );
         return ResponseEntity.ok(obj);
     }
 

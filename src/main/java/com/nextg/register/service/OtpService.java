@@ -11,6 +11,7 @@ import com.nextg.register.response.OtpResponse;
 import com.twilio.Twilio;
 import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +23,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Service
+@Slf4j
 public class OtpService {
     @Autowired
     private TwilioConfig twilioConfig;
@@ -44,6 +46,7 @@ public class OtpService {
             System.out.println(otp);
             otpResponseDto = new OtpResponse(OtpStatus.DELIVERED, otpMessage);
         } catch (Exception e) {
+            log.error("Send otp failure: " + otpRequest.getPhoneNumber());
             e.printStackTrace();
             otpResponseDto = new OtpResponse(OtpStatus.FAILED, e.getMessage());
         }
