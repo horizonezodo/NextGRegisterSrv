@@ -14,6 +14,7 @@ import com.nextg.register.service.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -23,13 +24,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.servlet.view.RedirectView;
 
-import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -431,7 +429,7 @@ public class AuthController {
     }
 
     @GetMapping("/verifiedSuccess")
-    public ResponseEntity<?> verifySuccessEmail(@RequestParam String email,@RequestParam String token, @RequestParam String phone) throws IOException, InterruptedException {
+    public ResponseEntity<?> verifySuccessEmail(@RequestParam String email,@RequestParam String token, @RequestParam String phone){
         phone = "+"+phone.trim();
             if(untils.validateEmail(email,token)) {
                 Account acc = accountService.findByPhone(phone);
@@ -440,13 +438,8 @@ public class AuthController {
                 accRepo.save(acc);
                 log.info("Email verify Success : " + email);
                 String frontEnd = "http://localhost:4200/settings";
-               java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                       .uri(URI.create(frontEnd))
-                       .POST(HttpRequest.BodyPublishers.ofString(String.valueOf(acc.isEmailVerifired())))
-                       .build();
-                HttpClient client = HttpClient.newHttpClient();
-                client.send(request, HttpResponse.BodyHandlers.ofString());
-                return new ResponseEntity<>(HttpStatus.OK);
+                java.net.URI location = ServletUriComponentsBuilder.fromUriString(frontEnd).build().toUri();
+                return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
             }
         log.error("Email has been registered : " + email);
         return new ResponseEntity<>(new ErrorCode("804"),HttpStatus.BAD_REQUEST);
