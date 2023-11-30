@@ -87,11 +87,15 @@ public class AuthController {
 
             RefreshToken refreshToken = refreshService.createRefreshToken(accDetails.getId());
             log.info("Login Success : " + accDetails.getFirstName());
+//            return ResponseEntity.ok(
+//                    new UserInfoResponse(
+//                            accDetails.getId(), accDetails.getFirstName(),
+//                            accDetails.getEmail(), accDetails.getPhone()
+//                            , roles, jwt,refreshToken.getToken(), accDetails.getImageUrl()
+//                    ));
             return ResponseEntity.ok(
                     new UserInfoResponse(
-                            accDetails.getId(), accDetails.getFirstName(),
-                            accDetails.getEmail(), accDetails.getPhone()
-                            , roles, jwt,refreshToken.getToken(), accDetails.getImageUrl()
+                             jwt,refreshToken.getToken()
                     ));
         }
         log.error("Account has been locked : " + request.getEmail());
@@ -104,7 +108,7 @@ public class AuthController {
         String tokenSigunp = request.getTokenSignup();
         if((!untils.validateEmail(request.getEmail(), tokenSigunp)) && (untils.validateJwtToken(tokenSigunp))){
             log.error("Email has been registered : " + request.getEmail());
-            return new ResponseEntity<>(new ErrorCode("803"),HttpStatus.NO_CONTENT);
+            return new ResponseEntity<>(new ErrorCode("803"),HttpStatus.BAD_REQUEST);
         }
 
         Account createAccount = new Account(request.getUsername(), request.getEmail(),
@@ -162,7 +166,7 @@ public class AuthController {
     public ResponseEntity<?> getEmailVerification(@RequestBody EmailVerifyRequest request) throws MessagingException {
         if(accRepo.existsByEmail(request.getEmail())){
             log.error("Email has been registered : " + request.getEmail());
-            return new ResponseEntity<>(new MessageResponse("803"),HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(new ErrorCode("803"),HttpStatus.BAD_REQUEST);
         }
 
         String jwt = untils.generateTokenToSignup(request.getEmail());
@@ -170,17 +174,6 @@ public class AuthController {
 
         log.info("Send email verify Success : " + request.getEmail());
         return new ResponseEntity<>(HttpStatus.OK);
-    }
-
-    @GetMapping("/verifySuccess")
-    public ResponseEntity<?> verifySuccess(@RequestBody VerifyEmailRequest req){
-        if((untils.validateEmail(req.getEmail(), req.getToken())) && (!accRepo.existsByEmail(req.getEmail()))){
-            VerifyResponse res = new VerifyResponse(req.getEmail(), req.getToken());
-            log.info("Verify Success : " + req.getEmail());
-            return new ResponseEntity<>(res,HttpStatus.OK);
-        }
-        log.error("Email has been registered : " + req.getEmail());
-        return new ResponseEntity<>(new ErrorCode("804"),HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/send-otp")
@@ -238,11 +231,15 @@ public class AuthController {
                 RefreshToken refreshToken = refreshService.createRefreshToken(acc.getId());
                 strRole.add("ROLE_USER");
                 log.info("Login with phone Success : " + request.getPhoneNumber());
+//                return ResponseEntity.ok(
+//                        new UserInfoResponse(
+//                                acc.getId(), acc.getFirstName(),
+//                                acc.getEmail(), acc.getPhone()
+//                                ,strRole, jwt,refreshToken.getToken(),acc.getImageUrl()
+//                        ));
                 return ResponseEntity.ok(
                         new UserInfoResponse(
-                                acc.getId(), acc.getFirstName(),
-                                acc.getEmail(), acc.getPhone()
-                                ,strRole, jwt,refreshToken.getToken(),acc.getImageUrl()
+                                jwt,refreshToken.getToken()
                         ));
             }
             log.error("Otp is not valid : " + request.getPhoneNumber());
@@ -254,16 +251,13 @@ public class AuthController {
 
     @PostMapping("/registerByPhone")
     public ResponseEntity<?> registerUserUsingPhone(@RequestBody RegisterByPhoneRequest request){
-//        OtpValidationRequest req = new OtpValidationRequest();
-//        req.setPhoneNumber("+84" + request.getPhone());
-//        req.setOtpNumber(req.getOtpNumber());
-        if(untils.validatePhone(request.getPhone(), request.getToken())){
+        if(!untils.validatePhone(request.getPhone(), request.getToken())){
             log.error("Phone is not valid : " + request.getPhone());
-            return new ResponseEntity<>(new ErrorCode("807"),HttpStatus.NO_CONTENT);
+            return new ResponseEntity<>(new ErrorCode("807"),HttpStatus.BAD_REQUEST);
         }
 
         Account createAccount = new Account(request.getUsername(), request.getEmail(),
-                encoder.encode(request.getPassword()),"+84"+(request.getPhone().trim()), request.getFirstName(), request.getLastName(), request.getStatus());
+                encoder.encode(request.getPassword()),request.getPhone(), request.getFirstName(), request.getLastName(), request.getStatus());
 
         Set<String> strRole = request.getRoles();
         Set<Role> roles = new HashSet<>();
@@ -309,7 +303,7 @@ public class AuthController {
         res.setPassword(request.getPassword());
         res.setEmail(createAccount.getEmail());
         log.info("Register with phone Success : " + request.getPhone());
-        return new ResponseEntity<>(res, HttpStatus.CREATED);
+        return new ResponseEntity<>(res, HttpStatus.OK);
     }
 
     @PutMapping("/changePassword-using-mail")
@@ -335,9 +329,8 @@ public class AuthController {
 
     @PutMapping("/changePassword-using-phone")
     public ResponseEntity<?> changePasswordUsingPhone(@RequestBody ChangePasswordByPhone req){
-        String tmpPhone = "+84"+req.getPhoneNumber();
-        if(untils.validatePhone(tmpPhone, req.getTokenChangePass())){
-            Account account = accountService.findByPhone(tmpPhone);
+        if(untils.validatePhone(req.getPhoneNumber(), req.getTokenChangePass())){
+            Account account = accountService.findByPhone(req.getPhoneNumber());
             account.setPassword(encoder.encode(req.getNewPassword()));
             accRepo.save(account);
             ChangePassByPhoneResponse res = new ChangePassByPhoneResponse();
@@ -352,6 +345,11 @@ public class AuthController {
 
     @PostMapping("/verifyEmailChangePass")
     public ResponseEntity<?> getEmailChangePassVerification(@RequestBody EmailVerifyRequest request) {
+        if(!accRepo.existsByEmail(request.getEmail())){
+            log.error("Email not found : " + request.getEmail());
+            return new ResponseEntity<>(new ErrorCode("822"),HttpStatus.BAD_REQUEST);
+        }
+
     	String jwt = null;
         try {
         	jwt = untils.generateTokenToSignup(request.getEmail());
@@ -414,7 +412,7 @@ public class AuthController {
     public ResponseEntity<?> getEmailVerify(@RequestBody EmailVerifyRequest request, @RequestHeader("Authorization")String token) throws MessagingException {
         if(accRepo.existsByEmail(request.getEmail())){
             log.error("Email has been registered : " + request.getEmail());
-            return new ResponseEntity<>(new ErrorCode("804"),HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(new ErrorCode("803"),HttpStatus.BAD_REQUEST);
         }
         String oldPhone="";
         if (StringUtils.hasText(token) && token.startsWith("Bearer ")) {
@@ -442,7 +440,7 @@ public class AuthController {
                 return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
             }
         log.error("Email has been registered : " + email);
-        return new ResponseEntity<>(new ErrorCode("804"),HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(new ErrorCode("803"),HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("/validate-otp-success")

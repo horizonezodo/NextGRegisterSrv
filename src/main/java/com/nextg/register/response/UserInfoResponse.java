@@ -11,12 +11,12 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserInfoResponse {
-    private Long id;
-    private String firstName;
-    private String email;
-    private String phone;
-    private List<String> roles;
+//    private Long id;
+//    private String firstName;
+//    private String email;
+//    private String phone;
+//    private List<String> roles;
     private String token;
     private String refreshToken;
-    private String imageUrl;
+//    private String imageUrl;
 }

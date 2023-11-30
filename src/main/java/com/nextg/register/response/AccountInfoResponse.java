@@ -12,7 +12,5 @@ public class AccountInfoResponse {
     String imageUrl;
     String email;
     String phoneNumber;
-    int rankId;
-    String expiredDate;
-
+    Long userId;
 }

@@ -147,9 +147,9 @@ public class AdminRankController {
                         }
                     }
                     if(check){
-                        desc.put("status","true");
+                        desc.put("status",d.isStatus());
                     }else{
-                        desc.put("status","false");
+                        desc.put("status",false);
                     }
                 }
 

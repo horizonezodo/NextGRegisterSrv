@@ -6,10 +6,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface RankRepository extends JpaRepository<Rank,Long> {
 
     @Query("SELECT DISTINCT r.id, r.rankName, r.rankTotal ,rd.description as descriptionName, rd.title as title FROM ranks r LEFT JOIN RankDescription rd ON CONCAT(',',r.rankDesId,',') like concat('%,',rd.id,',%') ")
     List<Object[]> getRanksWithDescriptions();
+
+    Optional<Rank> findById(Long id);
 }
