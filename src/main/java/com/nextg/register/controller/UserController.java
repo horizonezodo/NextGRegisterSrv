@@ -14,11 +14,11 @@ import com.paypal.base.rest.PayPalRESTException;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.quartz.*;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
-import org.springframework.scheduling.quartz.SchedulerFactoryBean;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -80,8 +80,6 @@ public class UserController {
     @Autowired
     RankRepository rankRepo;
 
-    @Autowired
-    PaymentDataService dataService;
 
     @Autowired
     DataCardService dataCardService;
@@ -89,8 +87,6 @@ public class UserController {
     @Autowired
     CardDataRepository cardDataRepo;
 
-//    @Autowired
-//    private SchedulerFactoryBean schedulerFactoryBean;
 
     @GetMapping("/info")
     private ResponseEntity<?> getAccountInfor(@RequestHeader("Authorization")String jwt) throws AccountException {
@@ -416,7 +412,7 @@ public class UserController {
                  double newRankCost = Double.parseDouble(tmpRank.getRankTotal());
                 LocalDateTime ngayHetHan = LocalDateTime.parse(account.getExpiredRankDate(), formatter);
                 LocalDateTime ngayHienTai = LocalDateTime.parse(dateString, formatter);
-                long soNgay = ngayHetHan.until(ngayHienTai, java.time.temporal.ChronoUnit.DAYS);
+                long soNgay = ngayHienTai.until(ngayHetHan, java.time.temporal.ChronoUnit.DAYS);
 
                  if(newRankCost < currentRankCost){
                      account.setRank_account(cardRequest.getRankId());
@@ -612,57 +608,7 @@ public class UserController {
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
-//    @PostMapping("/autoPayment/{id}")
-//    public ResponseEntity<?> autoPayment(@PathVariable("id")Long id) throws Exception {
-//        CardData cardRequest = getCardData(id);
-//        dataService.setAccessToken(service.getAccessToken());
-//        double amount = Double.parseDouble(cardRequest.getAmount());
-//        dataService.setAmount(amount);
-//        dataService.setCancelPort(portUrl + CANCEL_URL);
-//        dataService.setSuccessPort(portUrl + SUCCESS_URL);
-//        dataService.setCurrency(cardRequest.getCurrency());
-//        dataService.setCardNumber(cardRequest.getCardNumber());
-//        dataService.setCardHolderName(cardRequest.getCardHolderName());
-//        dataService.setCvc(cardRequest.getCvc());
-//        dataService.setUserId((long) cardRequest.getUserId());
-//        dataService.setRankId(cardRequest.getRankId().intValue());
-//        dataService.setDayExpired(cardRequest.getDayExpired());
-//        dataService.setDescription(cardRequest.getDescription());
-//        double tax = Double.parseDouble(cardRequest.getTax());
-//        dataService.setTax(tax);
-//        schedulePaymentJob(dataService);
-//        return new ResponseEntity<>(HttpStatus.OK);
-//    }
-//
-//    private void schedulePaymentJob(PaymentDataService paymentInfo) {
-//        // Lấy Scheduler từ SchedulerFactoryBean
-//        Scheduler scheduler = schedulerFactoryBean.getScheduler();
-//
-//        // Tạo JobDataMap để truyền dữ liệu vào Job
-//        JobDataMap jobDataMap = new JobDataMap();
-//        jobDataMap.put("paymentInfo", paymentInfo);
-//
-//        // Tạo công việc (JobDetail)
-//        JobDetail paymentJobDetail = JobBuilder.newJob(CardPaymentAutoService.class)
-//                .withIdentity("cardPaymentJob")
-//                .usingJobData(jobDataMap)
-//                .storeDurably()
-//                .build();
-//
-//        // Tạo Trigger để lên lịch công việc
-//        Trigger paymentJobTrigger = TriggerBuilder.newTrigger()
-//                .forJob(paymentJobDetail)
-//                .withIdentity("paymentJobTrigger")
-//                .withSchedule(CronScheduleBuilder.cronSchedule("0 0 2 * * ?")) // Chạy mỗi ngày vào lúc 2 giờ sáng
-//                .build();
-//
-//        // Lên lịch công việc
-//        try {
-//            scheduler.scheduleJob(paymentJobDetail, paymentJobTrigger);
-//        } catch (SchedulerException e) {
-//            e.printStackTrace();
-//        }
-//    }
+
 ////    @PostMapping("/vnpay")
 ////    public ResponseEntity<?> submitOrder(@RequestBody VnPayRequest request){
 ////        String baseUrl = "http://localhost:8989";
