@@ -7,6 +7,7 @@ import com.nextg.register.request.*;
 import com.nextg.register.response.AccountInfoResponse;
 import com.nextg.register.response.AccountRankInfoResponse;
 import com.nextg.register.response.ErrorCode;
+import com.nextg.register.response.PayPalResponse;
 import com.nextg.register.service.*;
 import com.paypal.api.payments.Links;
 import com.paypal.api.payments.Payment;
@@ -299,7 +300,7 @@ public class UserController {
                     java.net.URI location = ServletUriComponentsBuilder.fromUriString(link.getHref()).build().toUri();
                     log.info("Pay with paypal Success : " + request.getUserId());
                     //return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
-                    return new ResponseEntity<>(link.getHref(),HttpStatus.OK);
+                    return new ResponseEntity<>(new PayPalResponse(link.getHref()),HttpStatus.OK);
                 }
             }
         } catch (PayPalRESTException e) {
@@ -313,7 +314,7 @@ public class UserController {
 
     @GetMapping("/pay/OK")
     public ResponseEntity<?> paySuccess(){
-        String frontEnd = "http://localhost:4200/payment";
+        String frontEnd = "http://localhost:4200/payment?status=true";
         java.net.URI location = ServletUriComponentsBuilder.fromUriString(frontEnd).build().toUri();
         return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
     }
@@ -325,7 +326,7 @@ public class UserController {
         tranRepo.save(tran);
         log.info("Pay cancelled  : " + userId);
 
-        String frontEnd = "http://localhost:4200/payment";
+        String frontEnd = "http://localhost:4200/payment?status=false";
         java.net.URI location = ServletUriComponentsBuilder.fromUriString(frontEnd).build().toUri();
         return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
     }
@@ -356,7 +357,7 @@ public class UserController {
             System.out.println(payment.toJSON());
             if (payment.getState().equals("approved")) {
                 log.info("Payment Success : " + userId);
-                String frontEnd = "http://localhost:4200/payment";
+                String frontEnd = "http://localhost:4200/payment?status=true";
                 java.net.URI location = ServletUriComponentsBuilder.fromUriString(frontEnd).build().toUri();
                 return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
             }
@@ -369,7 +370,9 @@ public class UserController {
             errorCode = e.getMessage();
         }
         log.error("Payment get error : ");
-        return new ResponseEntity<>(errorCode,HttpStatus.BAD_REQUEST);
+        String frontEnd = "http://localhost:4200/payment?status=false";
+        java.net.URI location = ServletUriComponentsBuilder.fromUriString(frontEnd).build().toUri();
+        return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
     }
 
     @PostMapping("/pay-card")
