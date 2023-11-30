@@ -6,10 +6,10 @@ import lombok.Data;
 public class PaypalRequest {
     String currency;
     String description;
-    String dayPayment;
+    //String dayPayment;
     int userId;
     int rankId;
-    String dayExpired;
+    //String dayExpired;
     String discountCode;
 
 }

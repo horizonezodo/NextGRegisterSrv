@@ -212,7 +212,7 @@ public class UserController {
     public ResponseEntity<?> paymentWithPayPal(@RequestBody PaypalRequest request) throws AccountException {
         String errorCode = "";
 
-        double discountPersent;
+        double discountPersent = 0;
         double tmpCost = 0;
         double tax;
         double discount;
@@ -227,14 +227,6 @@ public class UserController {
         Rank tmpRank = otp.get();
 
 
-        Optional<DiscountCode> otp1 = discountCodeRepository.findByCode(request.getDiscountCode());
-        if(otp1.isEmpty()) {
-            log.error("No discountcode found");
-            return new ResponseEntity<>(new ErrorCode("824"),HttpStatus.BAD_REQUEST);
-        }
-        DiscountCode discountCode = otp1.get();
-        discountPersent= discountCode.getDiscountPercent();
-
         LocalDateTime currentDate = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm");
         String dateString = currentDate.format(formatter);
@@ -246,7 +238,7 @@ public class UserController {
         }else{
             Optional<Rank> rankOtp = rankRepo.findById((long) account.getRank_account());
             if(otp.isEmpty()) {
-                log.error("No discountcode found");
+                log.error("No discount code found");
                 return new ResponseEntity<>(new ErrorCode("824"),HttpStatus.BAD_REQUEST);
             }
             Rank currentRankAccount = rankOtp.get();
@@ -274,6 +266,14 @@ public class UserController {
             }
         }
         tax= tmpCost*0.1;
+        Optional<DiscountCode> otp1 = discountCodeRepository.findByCode(request.getDiscountCode());
+        if(otp1.isPresent()) {
+            DiscountCode discountCode = otp1.get();
+            discountPersent= discountCode.getDiscountPercent();
+        }else{
+            discountPersent = 0;
+        }
+
         discount= tmpCost * (discountPersent/100);
         total= tmpCost - discount +tax;
         DecimalFormat decimalFormat = new DecimalFormat("#.##");
@@ -298,7 +298,8 @@ public class UserController {
                     System.out.println(link.getHref());
                     java.net.URI location = ServletUriComponentsBuilder.fromUriString(link.getHref()).build().toUri();
                     log.info("Pay with paypal Success : " + request.getUserId());
-                    return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
+                    //return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
+                    return new ResponseEntity<>(link.getHref(),HttpStatus.OK);
                 }
             }
         } catch (PayPalRESTException e) {
@@ -312,7 +313,9 @@ public class UserController {
 
     @GetMapping("/pay/OK")
     public ResponseEntity<?> paySuccess(){
-        return new ResponseEntity<>(HttpStatus.OK);
+        String frontEnd = "http://localhost:4200/payment";
+        java.net.URI location = ServletUriComponentsBuilder.fromUriString(frontEnd).build().toUri();
+        return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
     }
 
     @GetMapping(value = "pay/cancel")
@@ -321,7 +324,10 @@ public class UserController {
         tran.setStatus("Cancelled");
         tranRepo.save(tran);
         log.info("Pay cancelled  : " + userId);
-        return new ResponseEntity<>(new ErrorCode("816"),HttpStatus.BAD_REQUEST);
+
+        String frontEnd = "http://localhost:4200/payment";
+        java.net.URI location = ServletUriComponentsBuilder.fromUriString(frontEnd).build().toUri();
+        return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
     }
 
     @GetMapping(value = "pay/success")
@@ -344,11 +350,15 @@ public class UserController {
 
             tran.setStatus("Success");
             tranRepo.save(tran);
-            deleteAccountUseDiscount(discountCode, Long.parseLong(userId));
+            if(discountCode.equalsIgnoreCase(null)){
+               deleteAccountUseDiscount(discountCode, Long.parseLong(userId));
+            }
             System.out.println(payment.toJSON());
             if (payment.getState().equals("approved")) {
                 log.info("Payment Success : " + userId);
-                return new ResponseEntity<>(HttpStatus.OK);
+                String frontEnd = "http://localhost:4200/payment";
+                java.net.URI location = ServletUriComponentsBuilder.fromUriString(frontEnd).build().toUri();
+                return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
             }
         } catch (PayPalRESTException | AccountException e) {
             System.out.println(e.getMessage());
@@ -377,15 +387,6 @@ public class UserController {
                 return new ResponseEntity<>(new ErrorCode("830"),HttpStatus.BAD_REQUEST);
             }
             Rank tmpRank = otp.get();
-
-
-            Optional<DiscountCode> otp1 = discountCodeRepository.findByCode(cardRequest.getDiscountCode());
-            if(otp1.isEmpty()) {
-                log.error("No discountcode found");
-                return new ResponseEntity<>(new ErrorCode("824"),HttpStatus.BAD_REQUEST);
-            }
-            DiscountCode discountCode = otp1.get();
-            discountPersent= discountCode.getDiscountPercent();
 
             LocalDateTime currentDate = LocalDateTime.now();
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm");
@@ -430,6 +431,13 @@ public class UserController {
                      account.setExpiredRankDate(futureString);
                      tmpCost= Double.parseDouble(tmpRank.getRankTotal());
                  }
+            }
+            Optional<DiscountCode> otp1 = discountCodeRepository.findByCode(cardRequest.getDiscountCode());
+            if(otp1.isPresent()) {
+                DiscountCode discountCode = otp1.get();
+                discountPersent = discountCode.getDiscountPercent();
+            }else {
+                discountPersent = 0;
             }
             tax= tmpCost*0.1;
             discount= tmpCost * (discountPersent/100);
